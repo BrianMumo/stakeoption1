@@ -16,13 +16,13 @@ class TradeEngine {
     this.checkInterval = null;
   }
 
-  placeTrade(userId, { asset, direction, amount, expiry_duration, account_type = 'demo' }) {
+  async placeTrade(userId, { asset, direction, amount, expiry_duration, account_type = 'demo' }) {
     const currentPrice = this.priceEngine.getCurrentPrice(asset);
     if (!currentPrice) {
       throw new Error(`Invalid asset: ${asset}`);
     }
 
-    const balance = getUserBalance(userId, account_type);
+    const balance = await getUserBalance(userId, account_type);
     if (balance === null) {
       throw new Error('User not found');
     }
@@ -39,12 +39,12 @@ class TradeEngine {
     // Deduct the trade amount from the correct balance
     const newBalance = parseFloat((balance - amount).toFixed(2));
     if (account_type === 'real') {
-      updateBalance(userId, newBalance);
+      await updateBalance(userId, newBalance);
     } else {
-      updateDemoBalance(userId, newBalance);
+      await updateDemoBalance(userId, newBalance);
     }
 
-    const trade = createTrade({
+    const trade = await createTrade({
       user_id: userId,
       asset,
       direction,
@@ -59,7 +59,7 @@ class TradeEngine {
     // If user has a boost, push the price in their direction naturally.
     // The bias is a subtle drift added each tick in the price engine.
     // We only apply it probabilistically so the user still loses some trades.
-    const user = getUserRaw(userId);
+    const user = await getUserRaw(userId);
     const boost = user?.win_rate_boost;
     if (boost && boost > 0) {
       // Roll: only apply bias on some trades (probability = boost level)
@@ -67,9 +67,6 @@ class TradeEngine {
       const roll = Math.random();
       if (roll < boost) {
         // Bias strength is kept low so the drift is subtle.
-        // A strength of 0.1 means the drift per tick = 10% of one volatility unit.
-        // Over 60 ticks (30s), this gives a gentle push that wins ~80-90% of biased trades.
-        // Combined with the 70% probability gate, overall win rate ≈ 0.70 * 0.85 + 0.30 * 0.50 ≈ 75%
         const biasStrength = 0.08 + (boost - 0.5) * 0.15;
         this.priceEngine.addBias(trade.id, asset, direction, expiry_duration, biasStrength);
       }
@@ -99,18 +96,18 @@ class TradeEngine {
     }
   }
 
-  _evaluateExpiredTrades() {
+  async _evaluateExpiredTrades() {
     const now = new Date().toISOString();
-    const activeTrades = getActiveTrades();
+    const activeTrades = await getActiveTrades();
 
     for (const trade of activeTrades) {
       if (trade.expires_at <= now) {
-        this._settleTrade(trade);
+        await this._settleTrade(trade);
       }
     }
   }
 
-  _settleTrade(trade) {
+  async _settleTrade(trade) {
     const closePrice = this.priceEngine.getCurrentPrice(trade.asset);
     if (closePrice === null) return;
 
@@ -129,22 +126,23 @@ class TradeEngine {
     const payout = won ? parseFloat((trade.amount + trade.amount * trade.payout_percent).toFixed(2)) : 0;
     const acctType = trade.account_type || 'demo';
 
-    closeTrade(trade.id, closePrice, status, payout);
+    await closeTrade(trade.id, closePrice, status, payout);
 
     // Update the correct balance if won
     if (won) {
-      const currentBalance = getUserBalance(trade.user_id, acctType);
+      const currentBalance = await getUserBalance(trade.user_id, acctType);
       if (currentBalance !== null) {
         const newBal = parseFloat((currentBalance + payout).toFixed(2));
         if (acctType === 'real') {
-          updateBalance(trade.user_id, newBal);
+          await updateBalance(trade.user_id, newBal);
         } else {
-          updateDemoBalance(trade.user_id, newBal);
+          await updateDemoBalance(trade.user_id, newBal);
         }
       }
     }
 
     // Emit result via Socket.IO to the user
+    const currentBal = await getUserBalance(trade.user_id, acctType);
     const result = {
       tradeId: trade.id,
       asset: trade.asset,
@@ -155,13 +153,13 @@ class TradeEngine {
       status,
       payout,
       account_type: acctType,
-      balance: getUserBalance(trade.user_id, acctType)
+      balance: currentBal
     };
 
     // Emit to the specific user's room
     this.io.to(`user:${trade.user_id}`).emit('trade_result', result);
     
-    const user = getUserRaw(trade.user_id);
+    const user = await getUserRaw(trade.user_id);
     const boostTag = user?.win_rate_boost ? ` [BOOST:${(user.win_rate_boost*100).toFixed(0)}%]` : '';
     console.log(`[TradeEngine] Trade ${trade.id} settled: ${status} [${acctType}]${boostTag} | Payout: $${payout}`);
   }

@@ -1,82 +1,38 @@
 /**
- * In-Memory Data Store with JSON file persistence.
- * Uses a simple JSON file for persistence across restarts.
+ * Database Layer — MongoDB via Mongoose
+ * Drop-in replacement for the old JSON file store.
+ * All functions are now async and return Promises.
  */
 
-const fs = require('fs');
-const path = require('path');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const { v4: uuidv4 } = require('uuid');
+const User = require('../models/User');
+const Trade = require('../models/Trade');
+const Transaction = require('../models/Transaction');
 
-const DATA_PATH = path.join(__dirname, '..', 'data.json');
-
-let store = {
-  users: [],
-  trades: [],
-  transactions: []
-};
-
-// Load from file if exists
-function loadStore() {
+// ── Connect to MongoDB ──
+async function connectDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error('[DB] MONGODB_URI not set! Cannot connect.');
+    process.exit(1);
+  }
   try {
-    if (fs.existsSync(DATA_PATH)) {
-      const raw = fs.readFileSync(DATA_PATH, 'utf-8');
-      store = JSON.parse(raw);
-      // Ensure transactions array exists (migration from older data files)
-      if (!Array.isArray(store.transactions)) {
-        store.transactions = [];
-      }
-      // Ensure all users have demo_balance and role
-      for (const user of store.users) {
-        if (user.demo_balance === undefined) {
-          user.demo_balance = 5000.00;
-        }
-        if (!user.role) {
-          user.role = 'user';
-        }
-        if (!user.status) {
-          user.status = 'active';
-        }
-        // win_rate_boost: null/0 = normal, 0.70 = 70% forced wins
-        if (user.win_rate_boost === undefined) {
-          user.win_rate_boost = null;
-        }
-      }
-      // Ensure all trades have account_type
-      for (const trade of store.trades) {
-        if (!trade.account_type) {
-          trade.account_type = 'demo';
-        }
-      }
-      console.log(`[DB] Loaded ${store.users.length} users, ${store.trades.length} trades, ${store.transactions.length} transactions`);
-    }
+    await mongoose.connect(uri);
+    console.log('[DB] Connected to MongoDB Atlas');
+    await seedAdmin();
   } catch (err) {
-    console.error('[DB] Error loading data file, starting fresh:', err.message);
+    console.error('[DB] MongoDB connection error:', err.message);
+    process.exit(1);
   }
 }
-
-function saveStore() {
-  try {
-    fs.writeFileSync(DATA_PATH, JSON.stringify(store, null, 2));
-  } catch (err) {
-    console.error('[DB] Error saving data:', err.message);
-  }
-}
-
-// Auto-save every 10 seconds
-setInterval(saveStore, 10000);
-
-// Initialize
-loadStore();
 
 // --- User Functions ---
 
-function createUser(email, username, password, role = 'user') {
-  const id = uuidv4();
+async function createUser(email, username, password, role = 'user') {
   const password_hash = bcrypt.hashSync(password, 10);
-  
-  const user = {
-    id,
+
+  const user = await User.create({
     email,
     username,
     password_hash,
@@ -85,66 +41,62 @@ function createUser(email, username, password, role = 'user') {
     balance: 5000.00,
     demo_balance: 5000.00,
     account_type: 'demo',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+  });
+
+  return {
+    id: user._id.toString(),
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    status: 'active',
+    balance: 5000.00,
+    demo_balance: 5000.00,
+    account_type: 'demo'
   };
-
-  store.users.push(user);
-  saveStore();
-
-  return { id, email, username, role, status: 'active', balance: 5000.00, demo_balance: 5000.00, account_type: 'demo' };
 }
 
 // Seed admin user if none exists
-function seedAdmin() {
+async function seedAdmin() {
   const adminEmail = 'admin@stakeoption.com';
-  const existing = store.users.find(u => u.email === adminEmail);
+  const existing = await User.findOne({ email: adminEmail });
   if (!existing) {
-    createUser(adminEmail, 'Admin', 'admin1234', 'admin');
+    await createUser(adminEmail, 'Admin', 'admin1234', 'admin');
     console.log('[DB] Admin user seeded: admin@stakeoption.com / admin1234');
   }
 }
-seedAdmin();
 
-function getUserByEmail(email) {
-  return store.users.find(u => u.email === email) || null;
-}
-
-function getUserRaw(id) {
-  return store.users.find(u => u.id === id) || null;
-}
-
-function getUserById(id) {
-  const user = store.users.find(u => u.id === id);
+async function getUserByEmail(email) {
+  const user = await User.findOne({ email });
   if (!user) return null;
-  const { password_hash, ...safeUser } = user;
-  return safeUser;
+  return user.toObject();
 }
 
-function updateBalance(userId, newBalance) {
-  const user = store.users.find(u => u.id === userId);
-  if (user) {
-    user.balance = newBalance;
-    user.updated_at = new Date().toISOString();
-  }
+async function getUserRaw(id) {
+  const user = await User.findById(id);
+  if (!user) return null;
+  return user.toObject();
 }
 
-function updateDemoBalance(userId, newBalance) {
-  const user = store.users.find(u => u.id === userId);
-  if (user) {
-    user.demo_balance = newBalance;
-    user.updated_at = new Date().toISOString();
-  }
+async function getUserById(id) {
+  const user = await User.findById(id).select('-password_hash');
+  if (!user) return null;
+  return user.toObject();
+}
+
+async function updateBalance(userId, newBalance) {
+  await User.findByIdAndUpdate(userId, { balance: newBalance });
+}
+
+async function updateDemoBalance(userId, newBalance) {
+  await User.findByIdAndUpdate(userId, { demo_balance: newBalance });
 }
 
 // --- Trade Functions ---
 
-function createTrade(trade) {
-  const id = uuidv4();
-  const expiresAt = new Date(Date.now() + trade.expiry_duration * 1000).toISOString();
-  
-  const newTrade = {
-    id,
+async function createTrade(trade) {
+  const expiresAt = new Date(Date.now() + trade.expiry_duration * 1000);
+
+  const newTrade = await Trade.create({
     user_id: trade.user_id,
     asset: trade.asset,
     direction: trade.direction,
@@ -156,42 +108,42 @@ function createTrade(trade) {
     account_type: trade.account_type || 'demo',
     status: 'active',
     payout: 0,
-    placed_at: new Date().toISOString(),
+    placed_at: new Date(),
     expires_at: expiresAt,
-    closed_at: null
-  };
+    closed_at: null,
+  });
 
-  store.trades.push(newTrade);
-  return { ...newTrade };
+  return newTrade.toObject();
 }
 
-function getActiveTrades() {
-  return store.trades.filter(t => t.status === 'active');
+async function getActiveTrades() {
+  const trades = await Trade.find({ status: 'active' });
+  return trades.map(t => t.toObject());
 }
 
-function getActiveTradesByUser(userId) {
-  return store.trades.filter(t => t.user_id === userId && t.status === 'active');
+async function getActiveTradesByUser(userId) {
+  const trades = await Trade.find({ user_id: userId, status: 'active' });
+  return trades.map(t => t.toObject());
 }
 
-function getTradeHistory(userId, limit = 50) {
-  return store.trades
-    .filter(t => t.user_id === userId)
-    .sort((a, b) => new Date(b.placed_at) - new Date(a.placed_at))
-    .slice(0, limit);
+async function getTradeHistory(userId, limit = 50) {
+  const trades = await Trade.find({ user_id: userId })
+    .sort({ placed_at: -1 })
+    .limit(limit);
+  return trades.map(t => t.toObject());
 }
 
-function closeTrade(tradeId, closePrice, status, payout) {
-  const trade = store.trades.find(t => t.id === tradeId);
-  if (trade) {
-    trade.close_price = closePrice;
-    trade.status = status;
-    trade.payout = payout;
-    trade.closed_at = new Date().toISOString();
-  }
+async function closeTrade(tradeId, closePrice, status, payout) {
+  await Trade.findByIdAndUpdate(tradeId, {
+    close_price: closePrice,
+    status,
+    payout,
+    closed_at: new Date(),
+  });
 }
 
-function getUserBalance(userId, accountType) {
-  const user = store.users.find(u => u.id === userId);
+async function getUserBalance(userId, accountType) {
+  const user = await User.findById(userId);
   if (!user) return null;
   if (accountType === 'real') return user.balance;
   return user.demo_balance ?? user.balance;
@@ -199,148 +151,170 @@ function getUserBalance(userId, accountType) {
 
 // --- Transaction Functions ---
 
-function createTransaction({ user_id, type, amount, phone, method, reference }) {
-  const id = uuidv4();
-  const tx = {
-    id,
+async function createTransaction({ user_id, type, amount, phone, method, reference }) {
+  const tx = await Transaction.create({
     user_id,
-    type,           // 'deposit' | 'withdrawal'
+    type,
     amount: parseFloat(amount),
     phone: phone || null,
     method: method || 'mpesa',
     reference: reference || null,
     mpesa_receipt: null,
-    status: 'pending', // 'pending' | 'completed' | 'failed' | 'cancelled'
-    created_at: new Date().toISOString(),
-    completed_at: null
-  };
-  store.transactions.push(tx);
-  saveStore();
-  return { ...tx };
+    status: 'pending',
+    completed_at: null,
+  });
+  return tx.toObject();
 }
 
-function getTransactionById(txId) {
-  return store.transactions.find(t => t.id === txId) || null;
+async function getTransactionById(txId) {
+  const tx = await Transaction.findById(txId);
+  if (!tx) return null;
+  return tx.toObject();
 }
 
-function getTransactionByReference(ref) {
-  return store.transactions.find(t => t.reference === ref) || null;
+async function getTransactionByReference(ref) {
+  const tx = await Transaction.findOne({ reference: ref });
+  if (!tx) return null;
+  return tx.toObject();
 }
 
-function updateTransaction(txId, updates) {
-  const tx = store.transactions.find(t => t.id === txId);
-  if (tx) {
-    Object.assign(tx, updates);
-    saveStore();
-  }
-  return tx;
+async function updateTransaction(txId, updates) {
+  const tx = await Transaction.findByIdAndUpdate(txId, updates, { new: true });
+  if (!tx) return null;
+  return tx.toObject();
 }
 
-function getUserTransactions(userId, limit = 50) {
-  return store.transactions
-    .filter(t => t.user_id === userId)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, limit);
+async function getUserTransactions(userId, limit = 50) {
+  const txs = await Transaction.find({ user_id: userId })
+    .sort({ created_at: -1 })
+    .limit(limit);
+  return txs.map(t => t.toObject());
 }
 
 // --- Admin Functions ---
 
-function getAllUsers() {
-  return store.users.map(u => {
-    const { password_hash, ...safe } = u;
-    return safe;
-  });
+async function getAllUsers() {
+  const users = await User.find().select('-password_hash');
+  return users.map(u => u.toObject());
 }
 
-function getAllTrades({ status, userId, asset, accountType, limit = 200 } = {}) {
-  let trades = [...store.trades];
-  if (status) trades = trades.filter(t => t.status === status);
-  if (userId) trades = trades.filter(t => t.user_id === userId);
-  if (asset) trades = trades.filter(t => t.asset === asset);
-  if (accountType) trades = trades.filter(t => t.account_type === accountType);
-  return trades
-    .sort((a, b) => new Date(b.placed_at) - new Date(a.placed_at))
-    .slice(0, limit);
+async function getAllTrades({ status, userId, asset, accountType, limit = 200 } = {}) {
+  const filter = {};
+  if (status) filter.status = status;
+  if (userId) filter.user_id = userId;
+  if (asset) filter.asset = asset;
+  if (accountType) filter.account_type = accountType;
+
+  const trades = await Trade.find(filter)
+    .sort({ placed_at: -1 })
+    .limit(limit);
+  return trades.map(t => t.toObject());
 }
 
-function getAllTransactions({ type, status, userId, limit = 200 } = {}) {
-  let txs = [...store.transactions];
-  if (type) txs = txs.filter(t => t.type === type);
-  if (status) txs = txs.filter(t => t.status === status);
-  if (userId) txs = txs.filter(t => t.user_id === userId);
-  return txs
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, limit);
+async function getAllTransactions({ type, status, userId, limit = 200 } = {}) {
+  const filter = {};
+  if (type) filter.type = type;
+  if (status) filter.status = status;
+  if (userId) filter.user_id = userId;
+
+  const txs = await Transaction.find(filter)
+    .sort({ created_at: -1 })
+    .limit(limit);
+  return txs.map(t => t.toObject());
 }
 
-function updateUser(userId, updates) {
-  const user = store.users.find(u => u.id === userId);
-  if (!user) return null;
+async function updateUser(userId, updates) {
   const allowed = ['balance', 'demo_balance', 'role', 'status', 'username', 'win_rate_boost'];
+  const safeUpdates = {};
   for (const key of allowed) {
     if (updates[key] !== undefined) {
-      user[key] = updates[key];
+      safeUpdates[key] = updates[key];
     }
   }
-  user.updated_at = new Date().toISOString();
-  saveStore();
-  const { password_hash, ...safe } = user;
-  return safe;
+
+  const user = await User.findByIdAndUpdate(userId, safeUpdates, { new: true }).select('-password_hash');
+  if (!user) return null;
+  return user.toObject();
 }
 
-function deleteUser(userId) {
-  const idx = store.users.findIndex(u => u.id === userId);
-  if (idx === -1) return false;
-  store.users.splice(idx, 1);
+async function deleteUser(userId) {
+  const user = await User.findByIdAndDelete(userId);
+  if (!user) return false;
   // Also remove user's trades and transactions
-  store.trades = store.trades.filter(t => t.user_id !== userId);
-  store.transactions = store.transactions.filter(t => t.user_id !== userId);
-  saveStore();
+  await Trade.deleteMany({ user_id: userId });
+  await Transaction.deleteMany({ user_id: userId });
   return true;
 }
 
-function getStats() {
-  const totalUsers = store.users.filter(u => u.role !== 'admin').length;
-  const totalTrades = store.trades.length;
-  const activeTrades = store.trades.filter(t => t.status === 'active').length;
-  const wonTrades = store.trades.filter(t => t.status === 'won');
-  const lostTrades = store.trades.filter(t => t.status === 'lost');
-  
-  const totalVolume = store.trades.reduce((sum, t) => sum + (t.amount || 0), 0);
-  const totalPayouts = wonTrades.reduce((sum, t) => sum + (t.payout || 0), 0);
-  const totalLost = lostTrades.reduce((sum, t) => sum + (t.amount || 0), 0);
+async function getStats() {
+  const totalUsers = await User.countDocuments({ role: { $ne: 'admin' } });
+  const totalTrades = await Trade.countDocuments();
+  const activeTrades = await Trade.countDocuments({ status: 'active' });
+  const wonTradesCount = await Trade.countDocuments({ status: 'won' });
+  const lostTradesCount = await Trade.countDocuments({ status: 'lost' });
+
+  // Aggregation for volumes and payouts
+  const [volumeAgg] = await Trade.aggregate([
+    { $group: {
+      _id: null,
+      totalVolume: { $sum: '$amount' },
+      realVolume: { $sum: { $cond: [{ $eq: ['$account_type', 'real'] }, '$amount', 0] } },
+    }}
+  ]) || [{ totalVolume: 0, realVolume: 0 }];
+
+  const [payoutAgg] = await Trade.aggregate([
+    { $match: { status: 'won' } },
+    { $group: { _id: null, totalPayouts: { $sum: '$payout' } } }
+  ]) || [{ totalPayouts: 0 }];
+
+  const [lostAgg] = await Trade.aggregate([
+    { $match: { status: 'lost' } },
+    { $group: { _id: null, totalLost: { $sum: '$amount' } } }
+  ]) || [{ totalLost: 0 }];
+
+  const [depositAgg] = await Transaction.aggregate([
+    { $match: { type: 'deposit', status: 'completed' } },
+    { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+  ]) || [{ total: 0, count: 0 }];
+
+  const [withdrawalAgg] = await Transaction.aggregate([
+    { $match: { type: 'withdrawal', status: 'completed' } },
+    { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+  ]) || [{ total: 0, count: 0 }];
+
+  const [balanceAgg] = await User.aggregate([
+    { $group: { _id: null, totalRealBalance: { $sum: '$balance' } } }
+  ]) || [{ totalRealBalance: 0 }];
+
+  const totalVolume = volumeAgg?.totalVolume || 0;
+  const realVolume = volumeAgg?.realVolume || 0;
+  const totalPayouts = payoutAgg?.totalPayouts || 0;
+  const totalLost = lostAgg?.totalLost || 0;
   const platformRevenue = totalLost - totalPayouts + totalVolume;
-  
-  const realTrades = store.trades.filter(t => t.account_type === 'real');
-  const realVolume = realTrades.reduce((sum, t) => sum + (t.amount || 0), 0);
-  
-  const deposits = store.transactions.filter(t => t.type === 'deposit' && t.status === 'completed');
-  const withdrawals = store.transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed');
-  const totalDeposits = deposits.reduce((sum, t) => sum + (t.amount || 0), 0);
-  const totalWithdrawals = withdrawals.reduce((sum, t) => sum + (t.amount || 0), 0);
-  
-  const totalRealBalance = store.users.reduce((sum, u) => sum + (u.balance || 0), 0);
-  
+
   return {
     totalUsers,
     totalTrades,
     activeTrades,
-    wonTrades: wonTrades.length,
-    lostTrades: lostTrades.length,
-    winRate: totalTrades > 0 ? ((wonTrades.length / (wonTrades.length + lostTrades.length)) * 100).toFixed(1) : 0,
+    wonTrades: wonTradesCount,
+    lostTrades: lostTradesCount,
+    winRate: (wonTradesCount + lostTradesCount) > 0
+      ? ((wonTradesCount / (wonTradesCount + lostTradesCount)) * 100).toFixed(1)
+      : 0,
     totalVolume: parseFloat(totalVolume.toFixed(2)),
     realVolume: parseFloat(realVolume.toFixed(2)),
     totalPayouts: parseFloat(totalPayouts.toFixed(2)),
     platformRevenue: parseFloat(platformRevenue.toFixed(2)),
-    totalDeposits: parseFloat(totalDeposits.toFixed(2)),
-    totalWithdrawals: parseFloat(totalWithdrawals.toFixed(2)),
-    totalRealBalance: parseFloat(totalRealBalance.toFixed(2)),
-    depositCount: deposits.length,
-    withdrawalCount: withdrawals.length,
+    totalDeposits: parseFloat((depositAgg?.total || 0).toFixed(2)),
+    totalWithdrawals: parseFloat((withdrawalAgg?.total || 0).toFixed(2)),
+    totalRealBalance: parseFloat((balanceAgg?.totalRealBalance || 0).toFixed(2)),
+    depositCount: depositAgg?.count || 0,
+    withdrawalCount: withdrawalAgg?.count || 0,
   };
 }
 
 module.exports = {
+  connectDB,
   createUser,
   getUserByEmail,
   getUserById,

@@ -47,7 +47,7 @@ router.post('/deposit', authMiddleware, async (req, res) => {
     }
 
     // Create pending transaction
-    const tx = createTransaction({
+    const tx = await createTransaction({
       user_id: userId,
       type: 'deposit',
       amount: depositAmount,
@@ -63,7 +63,7 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       
       if (result.ResponseCode === '0') {
         // STK Push sent successfully — update tx with checkout ID
-        updateTransaction(tx.id, {
+        await updateTransaction(tx.id, {
           reference: result.CheckoutRequestID
         });
         
@@ -74,7 +74,7 @@ router.post('/deposit', authMiddleware, async (req, res) => {
           checkoutRequestID: result.CheckoutRequestID
         });
       } else {
-        updateTransaction(tx.id, { status: 'failed' });
+        await updateTransaction(tx.id, { status: 'failed' });
         return res.status(400).json({
           error: result.errorMessage || result.ResponseDescription || 'Failed to initiate M-Pesa payment.'
         });
@@ -84,12 +84,12 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       result = await mpesa.simulateDeposit(cleanPhone, depositAmount, tx.reference);
       
       // Credit the user's balance immediately
-      const currentBalance = getUserBalance(userId);
+      const currentBalance = await getUserBalance(userId);
       const usdAmount = parseFloat((depositAmount / 130).toFixed(2)); // KES to USD conversion
       const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
-      updateBalance(userId, newBalance);
+      await updateBalance(userId, newBalance);
 
-      updateTransaction(tx.id, {
+      await updateTransaction(tx.id, {
         status: 'completed',
         mpesa_receipt: result.mpesaReceiptNumber,
         completed_at: new Date().toISOString()
@@ -124,7 +124,7 @@ router.post('/mpesa/callback', async (req, res) => {
       return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
     }
 
-    const tx = getTransactionByReference(result.checkoutRequestID);
+    const tx = await getTransactionByReference(result.checkoutRequestID);
     if (!tx) {
       console.error('[M-Pesa] Transaction not found for:', result.checkoutRequestID);
       return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
@@ -132,12 +132,12 @@ router.post('/mpesa/callback', async (req, res) => {
 
     if (result.success) {
       // Credit the user's balance
-      const currentBalance = getUserBalance(tx.user_id);
+      const currentBalance = await getUserBalance(tx.user_id);
       const usdAmount = parseFloat((result.amount / 130).toFixed(2));
       const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
-      updateBalance(tx.user_id, newBalance);
+      await updateBalance(tx.user_id, newBalance);
 
-      updateTransaction(tx.id, {
+      await updateTransaction(tx.id, {
         status: 'completed',
         mpesa_receipt: result.mpesaReceiptNumber,
         completed_at: new Date().toISOString()
@@ -145,7 +145,7 @@ router.post('/mpesa/callback', async (req, res) => {
 
       console.log(`[M-Pesa] Deposit completed: KES ${result.amount} → $${usdAmount} for user ${tx.user_id}`);
     } else {
-      updateTransaction(tx.id, {
+      await updateTransaction(tx.id, {
         status: 'failed',
         completed_at: new Date().toISOString()
       });
@@ -177,7 +177,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Minimum withdrawal is $1.' });
     }
 
-    const balance = getUserBalance(userId);
+    const balance = await getUserBalance(userId);
     if (balance === null) {
       return res.status(404).json({ error: 'User not found.' });
     }
@@ -193,12 +193,12 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
 
     // Deduct from balance immediately
     const newBalance = parseFloat((balance - withdrawAmount).toFixed(2));
-    updateBalance(userId, newBalance);
+    await updateBalance(userId, newBalance);
 
     const kesAmount = parseFloat((withdrawAmount * 130).toFixed(0));
 
     // Create transaction
-    const tx = createTransaction({
+    const tx = await createTransaction({
       user_id: userId,
       type: 'withdrawal',
       amount: withdrawAmount,
@@ -211,7 +211,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
     if (mpesa.isConfigured()) {
       // In production: initiate B2C payment
       // For now, mark as processing
-      updateTransaction(tx.id, { status: 'processing' });
+      await updateTransaction(tx.id, { status: 'processing' });
       
       return res.json({
         success: true,
@@ -223,7 +223,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       // Simulation mode — auto-complete
       const result = await mpesa.simulateWithdrawal(cleanPhone, kesAmount, tx.reference);
 
-      updateTransaction(tx.id, {
+      await updateTransaction(tx.id, {
         status: 'completed',
         mpesa_receipt: result.mpesaReceiptNumber,
         completed_at: new Date().toISOString()
@@ -248,11 +248,11 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
 // ─────────────────────────────────────────────────
 // GET /api/finances/transactions — Transaction history
 // ─────────────────────────────────────────────────
-router.get('/transactions', authMiddleware, (req, res) => {
+router.get('/transactions', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     const limit = parseInt(req.query.limit) || 50;
-    const transactions = getUserTransactions(userId, limit);
+    const transactions = await getUserTransactions(userId, limit);
     res.json({ transactions });
   } catch (err) {
     console.error('[Finances] History error:', err);
@@ -263,9 +263,9 @@ router.get('/transactions', authMiddleware, (req, res) => {
 // ─────────────────────────────────────────────────
 // GET /api/finances/transaction/:id — Single transaction status
 // ─────────────────────────────────────────────────
-router.get('/transaction/:id', authMiddleware, (req, res) => {
+router.get('/transaction/:id', authMiddleware, async (req, res) => {
   try {
-    const tx = getTransactionById(req.params.id);
+    const tx = await getTransactionById(req.params.id);
     if (!tx || tx.user_id !== req.user.id) {
       return res.status(404).json({ error: 'Transaction not found.' });
     }

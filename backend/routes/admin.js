@@ -8,9 +8,9 @@ const router = express.Router();
 router.use(adminAuth);
 
 // GET /api/admin/dashboard — Platform stats
-router.get('/dashboard', (req, res) => {
+router.get('/dashboard', async (req, res) => {
   try {
-    const stats = getStats();
+    const stats = await getStats();
     res.json({ stats });
   } catch (err) {
     console.error('Admin dashboard error:', err);
@@ -19,9 +19,9 @@ router.get('/dashboard', (req, res) => {
 });
 
 // GET /api/admin/users — All users
-router.get('/users', (req, res) => {
+router.get('/users', async (req, res) => {
   try {
-    const users = getAllUsers();
+    const users = await getAllUsers();
     res.json({ users });
   } catch (err) {
     console.error('Admin users error:', err);
@@ -30,12 +30,12 @@ router.get('/users', (req, res) => {
 });
 
 // GET /api/admin/users/:id — Single user detail
-router.get('/users/:id', (req, res) => {
+router.get('/users/:id', async (req, res) => {
   try {
-    const user = getUserById(req.params.id);
+    const user = await getUserById(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
     
-    const trades = getTradeHistory(req.params.id, 100);
+    const trades = await getTradeHistory(req.params.id, 100);
     res.json({ user, trades });
   } catch (err) {
     console.error('Admin user detail error:', err);
@@ -44,9 +44,9 @@ router.get('/users/:id', (req, res) => {
 });
 
 // PUT /api/admin/users/:id — Update user
-router.put('/users/:id', (req, res) => {
+router.put('/users/:id', async (req, res) => {
   try {
-    const updated = updateUser(req.params.id, req.body);
+    const updated = await updateUser(req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: 'User not found.' });
     res.json({ user: updated, message: 'User updated successfully.' });
   } catch (err) {
@@ -56,9 +56,9 @@ router.put('/users/:id', (req, res) => {
 });
 
 // DELETE /api/admin/users/:id — Delete user
-router.delete('/users/:id', (req, res) => {
+router.delete('/users/:id', async (req, res) => {
   try {
-    const deleted = deleteUser(req.params.id);
+    const deleted = await deleteUser(req.params.id);
     if (!deleted) return res.status(404).json({ error: 'User not found.' });
     res.json({ message: 'User deleted successfully.' });
   } catch (err) {
@@ -68,10 +68,10 @@ router.delete('/users/:id', (req, res) => {
 });
 
 // GET /api/admin/trades — All trades
-router.get('/trades', (req, res) => {
+router.get('/trades', async (req, res) => {
   try {
     const { status, user_id, asset, account_type, limit } = req.query;
-    const trades = getAllTrades({
+    const trades = await getAllTrades({
       status,
       userId: user_id,
       asset,
@@ -86,10 +86,10 @@ router.get('/trades', (req, res) => {
 });
 
 // GET /api/admin/transactions — All transactions
-router.get('/transactions', (req, res) => {
+router.get('/transactions', async (req, res) => {
   try {
     const { type, status, user_id, limit } = req.query;
-    const transactions = getAllTransactions({
+    const transactions = await getAllTransactions({
       type,
       status,
       userId: user_id,

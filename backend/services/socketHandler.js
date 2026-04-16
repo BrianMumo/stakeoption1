@@ -46,13 +46,13 @@ function setupSocketHandler(io, priceEngine, tradeEngine) {
     });
 
     // Client places a trade
-    socket.on('place_trade', (data, callback) => {
+    socket.on('place_trade', async (data, callback) => {
       if (!socket.user) {
         return callback({ error: 'Authentication required' });
       }
 
       try {
-        const result = tradeEngine.placeTrade(socket.user.id, {
+        const result = await tradeEngine.placeTrade(socket.user.id, {
           asset: data.asset,
           direction: data.direction,
           amount: parseFloat(data.amount),
@@ -68,13 +68,13 @@ function setupSocketHandler(io, priceEngine, tradeEngine) {
     });
 
     // Client requests current balance
-    socket.on('get_balance', (callback) => {
+    socket.on('get_balance', async (callback) => {
       if (!socket.user) {
         return callback({ error: 'Authentication required' });
       }
 
       const { getUserById } = require('../config/db');
-      const user = getUserById(socket.user.id);
+      const user = await getUserById(socket.user.id);
       if (user) {
         callback({ balance: user.balance, demo_balance: user.demo_balance });
       } else {

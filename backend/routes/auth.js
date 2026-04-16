@@ -7,7 +7,7 @@ require('dotenv').config();
 const router = express.Router();
 
 // POST /api/auth/register
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
   try {
     const { email, username, password } = req.body;
 
@@ -19,12 +19,12 @@ router.post('/register', (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
 
-    const existing = getUserByEmail(email);
+    const existing = await getUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
-    const user = createUser(email, username, password);
+    const user = await createUser(email, username, password);
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role || 'user' }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
@@ -41,7 +41,7 @@ router.post('/register', (req, res) => {
       }
     });
   } catch (err) {
-    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+    if (err.code === 11000) {
       return res.status(409).json({ error: 'Email or username already taken.' });
     }
     console.error('Register error:', err);
@@ -50,7 +50,7 @@ router.post('/register', (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -58,7 +58,7 @@ router.post('/login', (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }

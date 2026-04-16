@@ -5,9 +5,9 @@ const { getUserById } = require('../config/db');
 const router = express.Router();
 
 // GET /api/user/profile
-router.get('/profile', authMiddleware, (req, res) => {
+router.get('/profile', authMiddleware, async (req, res) => {
   try {
-    const user = getUserById(req.user.id);
+    const user = await getUserById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
@@ -19,9 +19,9 @@ router.get('/profile', authMiddleware, (req, res) => {
 });
 
 // GET /api/user/balance
-router.get('/balance', authMiddleware, (req, res) => {
+router.get('/balance', authMiddleware, async (req, res) => {
   try {
-    const user = getUserById(req.user.id);
+    const user = await getUserById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }

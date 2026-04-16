@@ -4,6 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
+const { connectDB } = require('./config/db');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const tradeRoutes = require('./routes/trades');
@@ -56,19 +57,23 @@ const tradeEngine = new TradeEngine(priceEngine, io);
 // Wire up socket events
 setupSocketHandler(io, priceEngine, tradeEngine);
 
-// Start engines
+// Start everything
 (async () => {
-  await priceEngine.start(500);     // Price ticks every 500ms — fetches history first
-  tradeEngine.startEvaluationLoop(500); // Check expired trades every 500ms
-})();
+  // Connect to MongoDB first
+  await connectDB();
 
-// Start server
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🚀 StakeOption Backend running on http://localhost:${PORT}`);
-  console.log(`📊 Price engine broadcasting for ${priceEngine.getAssetList().length} assets`);
-  console.log(`🔌 Socket.IO ready for connections\n`);
-});
+  // Start engines
+  await priceEngine.start(500);
+  tradeEngine.startEvaluationLoop(500);
+
+  // Start server
+  const PORT = process.env.PORT || 3001;
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🚀 StakeOption Backend running on http://localhost:${PORT}`);
+    console.log(`📊 Price engine broadcasting for ${priceEngine.getAssetList().length} assets`);
+    console.log(`🔌 Socket.IO ready for connections\n`);
+  });
+})();
 
 // Graceful shutdown
 process.on('SIGINT', () => {

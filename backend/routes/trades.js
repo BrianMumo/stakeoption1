@@ -5,10 +5,10 @@ const { getTradeHistory, getActiveTradesByUser } = require('../config/db');
 const router = express.Router();
 
 // GET /api/trades/history
-router.get('/history', authMiddleware, (req, res) => {
+router.get('/history', authMiddleware, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const trades = getTradeHistory(req.user.id, limit);
+    const trades = await getTradeHistory(req.user.id, limit);
     res.json({ trades });
   } catch (err) {
     console.error('Trade history error:', err);
@@ -17,9 +17,9 @@ router.get('/history', authMiddleware, (req, res) => {
 });
 
 // GET /api/trades/active
-router.get('/active', authMiddleware, (req, res) => {
+router.get('/active', authMiddleware, async (req, res) => {
   try {
-    const trades = getActiveTradesByUser(req.user.id);
+    const trades = await getActiveTradesByUser(req.user.id);
     res.json({ trades });
   } catch (err) {
     console.error('Active trades error:', err);
