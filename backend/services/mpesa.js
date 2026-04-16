@@ -162,6 +162,53 @@ class MpesaService {
   }
 
   /**
+   * Query STK Push status (check if user has entered PIN)
+   * @param {string} checkoutRequestID - The CheckoutRequestID from stkPush response
+   * @returns {Promise<object>} Query result
+   */
+  async stkQuery(checkoutRequestID) {
+    const token = await this.getAccessToken();
+    const { password, timestamp } = this.getPassword();
+
+    const payload = JSON.stringify({
+      BusinessShortCode: this.shortcode,
+      Password: password,
+      Timestamp: timestamp,
+      CheckoutRequestID: checkoutRequestID
+    });
+
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: this.baseUrl,
+        path: '/mpesa/stkpushquery/v1/query',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            resolve(parsed);
+          } catch (e) {
+            reject(new Error('Invalid M-Pesa STK Query response'));
+          }
+        });
+      });
+
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+  }
+
+  /**
    * Parse STK Push callback data
    * @param {object} body - Callback request body
    * @returns {object} Parsed callback result

@@ -261,14 +261,58 @@ router.get('/transactions', authMiddleware, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────
-// GET /api/finances/transaction/:id — Single transaction status
+// GET /api/finances/transaction/:id — Single transaction status (with active M-Pesa query)
 // ─────────────────────────────────────────────────
 router.get('/transaction/:id', authMiddleware, async (req, res) => {
   try {
-    const tx = await getTransactionById(req.params.id);
+    let tx = await getTransactionById(req.params.id);
     if (!tx || tx.user_id !== req.user.id) {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
+
+    // If transaction is still pending and has a reference (CheckoutRequestID), query M-Pesa
+    if (tx.status === 'pending' && tx.type === 'deposit' && tx.reference && mpesa.isConfigured()) {
+      try {
+        const queryResult = await mpesa.stkQuery(tx.reference);
+        console.log('[M-Pesa] STK Query result:', JSON.stringify(queryResult));
+
+        // ResultCode 0 = success (payment completed)
+        if (queryResult.ResultCode === '0' || queryResult.ResultCode === 0) {
+          // Credit the user's balance
+          const currentBalance = await getUserBalance(tx.user_id);
+          const usdAmount = parseFloat((tx.amount / 130).toFixed(2));
+          const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
+          await updateBalance(tx.user_id, newBalance);
+
+          tx = await updateTransaction(tx.id || tx._id, {
+            status: 'completed',
+            mpesa_receipt: queryResult.ResultDesc || 'MPesa-Confirmed',
+            completed_at: new Date().toISOString()
+          });
+
+          console.log(`[M-Pesa] STK Query confirmed payment: KES ${tx.amount} → $${usdAmount} for user ${tx.user_id}`);
+        } 
+        // ResultCode 1032 = cancelled by user
+        else if (queryResult.ResultCode === '1032' || queryResult.ResultCode === 1032) {
+          tx = await updateTransaction(tx.id || tx._id, {
+            status: 'failed',
+            completed_at: new Date().toISOString()
+          });
+        }
+        // ResultCode 1037 = timeout (user didn't enter PIN in time)
+        else if (queryResult.ResultCode === '1037' || queryResult.ResultCode === 1037) {
+          tx = await updateTransaction(tx.id || tx._id, {
+            status: 'failed',
+            completed_at: new Date().toISOString()
+          });
+        }
+        // Other codes: still processing, keep as pending
+      } catch (queryErr) {
+        console.error('[M-Pesa] STK Query error:', queryErr.message);
+        // Don't fail the request — just return current tx status
+      }
+    }
+
     res.json({ transaction: tx });
   } catch (err) {
     console.error('[Finances] Transaction lookup error:', err);
