@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════════
    Finances Overlay — Premium Slide-in Panel
-   M-Pesa Paybill Integration
+   USD-first with KES equivalence
    ══════════════════════════════════════════════════ */
 
 .overlay {
@@ -28,7 +28,7 @@
 .panel {
   position: relative;
   margin-left: var(--sidebar-width, 70px);
-  width: 460px;
+  width: 440px;
   max-width: calc(100vw - var(--sidebar-width, 70px));
   height: 100vh;
   background: linear-gradient(180deg, #0d1421 0%, #111827 40%, #0f172a 100%);
@@ -95,9 +95,16 @@
   color: #f1f5f9;
 }
 
+/* ── Content ── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+}
+
 /* ── Balance Card ── */
 .balanceCard {
-  margin: 16px 24px;
+  margin: 16px 0 20px;
   padding: 20px;
   border-radius: 16px;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
@@ -140,63 +147,107 @@
   margin-right: 4px;
 }
 
-/* ── Tabs ── */
-.tabs {
-  display: flex;
-  gap: 4px;
-  padding: 0 24px;
-  margin-bottom: 20px;
-}
-
-.tab {
-  flex: 1;
-  padding: 10px 0;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #64748b;
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.demoNotice {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #f59e0b;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
 }
 
-.tab:hover {
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.03);
+/* ── Menu Actions ── */
+.menuActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.tabActive {
+.menuBtn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   color: #f1f5f9;
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
 }
 
-.tabDeposit.tabActive {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.2);
+.menuBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
 }
 
-.tabWithdraw.tabActive {
-  color: #f97316;
-  background: rgba(249, 115, 22, 0.08);
-  border-color: rgba(249, 115, 22, 0.2);
+.menuBtnIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.tabIcon {
-  font-size: 16px;
-}
-
-/* ── Content ── */
-.content {
+.menuBtnText {
   flex: 1;
-  overflow-y: auto;
-  padding: 0 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menuBtnLabel {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.menuBtnSub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* ── Sub Header (Deposit / Withdraw titles) ── */
+.subHeader {
+  margin-bottom: 16px;
+}
+
+.subTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 4px;
+}
+
+.subDesc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── Back Button ── */
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #94a3b8;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  transition: color 0.2s;
+}
+
+.backBtn:hover {
+  color: #f1f5f9;
 }
 
 /* ── Form ── */
@@ -214,68 +265,68 @@
   margin-bottom: 8px;
 }
 
-.phoneInput {
+/* Amount input */
+.customAmount {
   display: flex;
   align-items: center;
-  gap: 0;
   border-radius: 12px;
   background: #1e293b;
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   transition: border-color 0.2s ease;
+  margin-bottom: 10px;
 }
 
-.phoneInput:focus-within {
-  border-color: rgba(34, 197, 94, 0.5);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+.customAmount:focus-within {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.phonePrefix {
-  padding: 14px 12px 14px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #64748b;
-  background: rgba(255, 255, 255, 0.03);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.flag {
+.amountPrefix {
+  padding: 14px 4px 14px 16px;
   font-size: 18px;
+  font-weight: 700;
+  color: #64748b;
 }
 
-.phoneField {
+.amountField {
   flex: 1;
-  padding: 14px 16px;
-  font-size: 15px;
-  font-weight: 500;
+  padding: 14px 16px 14px 4px;
+  font-size: 20px;
+  font-weight: 600;
   color: #f1f5f9;
   background: transparent;
   border: none;
   outline: none;
   font-family: var(--font-mono, monospace);
-  letter-spacing: 1px;
 }
 
-.phoneField::placeholder {
+.amountField::placeholder {
   color: #475569;
+}
+
+/* Hide number input spinners */
+.amountField::-webkit-outer-spin-button,
+.amountField::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.amountField[type=number] {
+  -moz-appearance: textfield;
 }
 
 /* Amount chips */
 .amountChips {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .chip {
-  padding: 12px 0;
-  border-radius: 10px;
-  font-size: 14px;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-size: 13px;
   font-weight: 600;
   color: #94a3b8;
   background: #1e293b;
@@ -293,21 +344,30 @@
 }
 
 .chipActive {
-  border-color: rgba(34, 197, 94, 0.5);
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.08);
-  box-shadow: 0 0 12px rgba(34, 197, 94, 0.1);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.1);
 }
 
-.chipActiveWithdraw {
-  border-color: rgba(249, 115, 22, 0.5);
-  color: #f97316;
-  background: rgba(249, 115, 22, 0.08);
-  box-shadow: 0 0 12px rgba(249, 115, 22, 0.1);
+/* KES equivalence */
+.kesEquiv {
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+  margin-top: 2px;
 }
 
-/* Custom amount input */
-.customAmount {
+/* Amount meta (min/max) */
+.amountMeta {
+  font-size: 12px;
+  color: #475569;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+/* Phone input */
+.phoneInput {
   display: flex;
   align-items: center;
   border-radius: 12px;
@@ -317,57 +377,59 @@
   transition: border-color 0.2s ease;
 }
 
-.customAmount:focus-within {
-  border-color: rgba(34, 197, 94, 0.5);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+.phoneInput:focus-within {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.amountPrefix {
-  padding: 14px 12px 14px 16px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.amountField {
-  flex: 1;
-  padding: 14px 16px 14px 0;
-  font-size: 18px;
-  font-weight: 600;
+.phoneFieldFull {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 500;
   color: #f1f5f9;
   background: transparent;
   border: none;
   outline: none;
   font-family: var(--font-mono, monospace);
+  letter-spacing: 1px;
 }
 
-.amountField::placeholder {
+.phoneFieldFull::placeholder {
   color: #475569;
 }
 
-/* Conversion info */
-.conversionInfo {
+/* M-Pesa notice */
+.mpesaNotice {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(249, 115, 22, 0.06);
+  border: 1px solid rgba(249, 115, 22, 0.15);
+  font-size: 13px;
+  color: #f59e0b;
+  line-height: 1.5;
+}
+
+.mpesaNotice p {
+  margin: 0;
+}
+
+.mpesaNotice p + p {
+  margin-top: 4px;
+}
+
+/* Error message */
+.errorMsg {
+  color: #f87171;
+  font-size: 13px;
+  margin-bottom: 16px;
   padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.08);
   border-radius: 8px;
-  background: rgba(34, 197, 94, 0.06);
-  border: 1px solid rgba(34, 197, 94, 0.1);
-  font-size: 12px;
-  color: #94a3b8;
-  margin-bottom: 20px;
-}
-
-.conversionIcon {
-  color: #22c55e;
-  font-size: 14px;
-}
-
-.conversionAmount {
-  color: #22c55e;
-  font-weight: 600;
-  font-family: var(--font-mono, monospace);
+  border: 1px solid rgba(239, 68, 68, 0.15);
 }
 
 /* Submit button */
@@ -387,6 +449,7 @@
   gap: 8px;
   position: relative;
   overflow: hidden;
+  margin-top: 8px;
 }
 
 .submitBtn::before {
@@ -405,24 +468,24 @@
 }
 
 .depositBtn {
-  background: linear-gradient(135deg, #22c55e, #16a34a);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
-  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
 }
 
 .depositBtn:hover {
-  box-shadow: 0 6px 28px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 6px 28px rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
 }
 
 .withdrawBtn {
-  background: linear-gradient(135deg, #f97316, #ea580c);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: white;
-  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
 }
 
 .withdrawBtn:hover {
-  box-shadow: 0 6px 28px rgba(249, 115, 22, 0.4);
+  box-shadow: 0 6px 28px rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
 }
 
@@ -443,28 +506,6 @@
   border-top-color: white;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-/* ── M-Pesa Branding ── */
-.mpesaBrand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  margin-top: 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: 12px;
-  color: #64748b;
-}
-
-.mpesaLogo {
-  font-size: 16px;
-  font-weight: 800;
-  color: #4ade80;
-  letter-spacing: -0.5px;
 }
 
 /* ── Success State ── */
@@ -705,16 +746,12 @@
     padding: 16px;
   }
 
-  .balanceCard {
-    margin: 12px 16px;
-  }
-
-  .tabs {
-    padding: 0 16px;
-  }
-
   .content {
     padding: 0 16px 16px;
+  }
+
+  .balanceCard {
+    margin: 12px 0 16px;
   }
 
   .amountChips {
