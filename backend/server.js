@@ -18,8 +18,12 @@ const app = express();
 const server = http.createServer(app);
 
 // CORS
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -39,7 +43,7 @@ app.get('/api/health', (req, res) => {
 // Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -60,7 +64,7 @@ setupSocketHandler(io, priceEngine, tradeEngine);
 
 // Start server
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 StakeOption Backend running on http://localhost:${PORT}`);
   console.log(`📊 Price engine broadcasting for ${priceEngine.getAssetList().length} assets`);
   console.log(`🔌 Socket.IO ready for connections\n`);
