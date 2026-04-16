@@ -45,7 +45,7 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ error: 'Email or username already taken.' });
     }
     console.error('Register error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(500).json({ error: 'Internal server error.', debug: err.message, stack: err.stack });
   }
 });
 
