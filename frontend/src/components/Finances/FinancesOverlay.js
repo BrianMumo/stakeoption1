@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { initiateDeposit, initiateWithdrawal, getTransactions, getBalance } from '@/lib/api';
+import { initiateDeposit, initiateWithdrawal, getTransactions, getBalance, getTransactionStatus } from '@/lib/api';
 import styles from './FinancesOverlay.module.css';
 
 const DEPOSIT_CHIPS = [1, 10, 25, 50, 100, 250];
 const KES_PER_USD = 129.24;
+const POLL_INTERVAL = 3000; // 3 seconds
+const POLL_TIMEOUT = 120000; // 2 minutes max wait
 
 export default function FinancesOverlay({ isOpen, onClose }) {
   const { user, updateBalance, accountType } = useAuth();
@@ -15,9 +17,19 @@ export default function FinancesOverlay({ isOpen, onClose }) {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(null);
+  const [pending, setPending] = useState(null); // { transactionId, usdAmount, kesAmount }
   const [error, setError] = useState('');
   const [transactions, setTransactions] = useState([]);
   const [txLoading, setTxLoading] = useState(false);
+  const pollRef = useRef(null);
+  const pollStartRef = useRef(null);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   // Fetch transactions when history view is active
   useEffect(() => {
@@ -57,25 +69,78 @@ export default function FinancesOverlay({ isOpen, onClose }) {
     setLoading(true);
     try {
       const result = await initiateDeposit(phone.trim(), kesAmount);
-      setSuccess({
-        type: 'deposit',
-        message: result.message,
-        usdAmount: usdAmt,
-        kesAmount: kesAmount,
-        receipt: result.receipt || result.checkoutRequestID,
-        balance: result.balance
-      });
 
-      if (result.balance !== undefined) {
-        updateBalance(result.balance);
+      if (result.simulated) {
+        // Simulation mode — instant success
+        setSuccess({
+          type: 'deposit',
+          message: result.message,
+          usdAmount: usdAmt,
+          kesAmount: kesAmount,
+          receipt: result.receipt,
+          balance: result.balance
+        });
+        if (result.balance !== undefined) updateBalance(result.balance);
       } else {
-        await refreshBalance();
+        // Real M-Pesa — STK Push sent, wait for user to enter PIN
+        setPending({
+          transactionId: result.transactionId,
+          usdAmount: usdAmt,
+          kesAmount: kesAmount,
+          message: result.message || 'M-Pesa payment prompt sent to your phone. Enter your PIN to complete.'
+        });
+        // Start polling for transaction status
+        startPolling(result.transactionId, usdAmt, kesAmount);
       }
     } catch (err) {
       setError(err.message || 'Deposit failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const startPolling = (txId, usdAmt, kesAmt) => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollStartRef.current = Date.now();
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const data = await getTransactionStatus(txId);
+        const tx = data.transaction;
+
+        if (tx.status === 'completed') {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setPending(null);
+          await refreshBalance();
+          const balData = await getBalance();
+          setSuccess({
+            type: 'deposit',
+            message: 'Deposit completed successfully!',
+            usdAmount: usdAmt,
+            kesAmount: kesAmt,
+            receipt: tx.mpesa_receipt || tx.reference,
+            balance: balData.balance
+          });
+          updateBalance(balData.balance);
+        } else if (tx.status === 'failed') {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setPending(null);
+          setError('M-Pesa payment was cancelled or failed. Please try again.');
+        }
+
+        // Timeout after 2 minutes
+        if (Date.now() - pollStartRef.current > POLL_TIMEOUT) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+          setPending(null);
+          setError('Payment confirmation timed out. If you were charged, your balance will update shortly.');
+        }
+      } catch (err) {
+        // Silently retry on poll errors
+      }
+    }, POLL_INTERVAL);
   };
 
   const handleWithdraw = async () => {
@@ -111,8 +176,13 @@ export default function FinancesOverlay({ isOpen, onClose }) {
 
   const resetForm = () => {
     setSuccess(null);
+    setPending(null);
     setAmount('');
     setError('');
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
   };
 
   const handleClose = () => {
@@ -217,8 +287,33 @@ export default function FinancesOverlay({ isOpen, onClose }) {
             </>
           )}
 
+          {/* ── Pending M-Pesa Confirmation ── */}
+          {pending && (
+            <div className={styles.pendingState}>
+              <div className={styles.pendingSpinnerWrap}>
+                <div className={styles.pendingSpinner} />
+                <div className={styles.pendingPhoneIcon}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                </div>
+              </div>
+              <div className={styles.pendingTitle}>Check your phone</div>
+              <div className={styles.pendingMessage}>{pending.message}</div>
+              <div className={styles.pendingDetails}>
+                <div className={styles.successRow}>
+                  <span className={styles.successLabel}>Amount</span>
+                  <span className={styles.successValue}>${pending.usdAmount?.toFixed(2)}</span>
+                </div>
+                <div className={styles.successRow}>
+                  <span className={styles.successLabel}>M-Pesa Amount</span>
+                  <span className={styles.successValue}>KES {pending.kesAmount?.toLocaleString()}</span>
+                </div>
+              </div>
+              <button className={styles.cancelPendingBtn} onClick={resetForm}>Cancel</button>
+            </div>
+          )}
+
           {/* ── Deposit View ── */}
-          {view === 'deposit' && !success && (
+          {view === 'deposit' && !success && !pending && (
             <>
               <div className={styles.subHeader}>
                 <h3 className={styles.subTitle}>Deposit Funds</h3>

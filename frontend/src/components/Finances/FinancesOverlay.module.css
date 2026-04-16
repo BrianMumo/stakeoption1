@@ -508,6 +508,91 @@
   animation: spin 0.8s linear infinite;
 }
 
+/* ── Pending M-Pesa State ── */
+.pendingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.pendingSpinnerWrap {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+}
+
+.pendingSpinner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(59, 130, 246, 0.15);
+  border-top-color: #3b82f6;
+  animation: spin 1.2s linear infinite;
+}
+
+.pendingPhoneIcon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b82f6;
+  animation: phonePulse 2s ease-in-out infinite;
+}
+
+.pendingTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 8px;
+}
+
+.pendingMessage {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.6;
+  max-width: 300px;
+  margin-bottom: 24px;
+}
+
+.pendingDetails {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 24px;
+}
+
+.cancelPendingBtn {
+  padding: 10px 32px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelPendingBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f1f5f9;
+}
+
+@keyframes phonePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
 /* ── Success State ── */
 .successState {
   display: flex;
