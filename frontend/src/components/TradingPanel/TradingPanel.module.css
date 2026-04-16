@@ -1,0 +1,363 @@
+/* ══════════════════════════════════════════════════
+   ExpertOption-style Bottom Trading Bar (2-row layout)
+   Row 1: [-  $100  +]  [<  00:00:30  >]
+   Row 2: [▼ SELL 79%]  [BUY 79% ▲]
+   ══════════════════════════════════════════════════ */
+.bottomBar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  z-index: 20;
+}
+
+/* ── Row 1: Investment + Expiry ── */
+.topRow {
+  display: flex;
+  align-items: stretch;
+  height: 52px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ── Investment Section ── */
+.investmentSection {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.amountBtn {
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  transition: all var(--duration-fast) ease;
+}
+
+.amountBtn:hover {
+  color: var(--text-white);
+  background: var(--bg-hover);
+}
+
+.amountBtn:active {
+  transform: scale(0.92);
+}
+
+.amountDisplay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 0 8px;
+}
+
+.amountValue {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.amountCurrency {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-white);
+}
+
+.amountInput {
+  width: 70px;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-white);
+  background: transparent;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.amountInput::-webkit-inner-spin-button,
+.amountInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.amountInput[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.amountLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+/* ── Expiry Section (ExpertOption: < 00:00:30 >) ── */
+.expirySection {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+}
+
+.expiryDisplay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.expiryTime {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-white);
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.expiryLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.expiryArrow {
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  transition: all var(--duration-fast) ease;
+}
+
+.expiryArrow:hover:not(:disabled) {
+  color: var(--text-white);
+  background: var(--bg-hover);
+}
+
+.expiryArrow:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.expiryArrow:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+/* ── Row 2: SELL / BUY Buttons ── */
+.bottomRow {
+  display: flex;
+  align-items: stretch;
+  height: 64px;
+}
+
+.sellBtn,
+.buyBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.sellBtn {
+  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+  color: white;
+}
+
+.sellBtn:hover:not(.btnDisabled) {
+  background: linear-gradient(135deg, #ff5555 0%, #dd1111 100%);
+  filter: brightness(1.1);
+}
+
+.sellBtn:active:not(.btnDisabled) {
+  filter: brightness(0.95);
+  transform: scale(0.98);
+}
+
+.buyBtn {
+  background: linear-gradient(135deg, #00c853 0%, #009624 100%);
+  color: white;
+}
+
+.buyBtn:hover:not(.btnDisabled) {
+  background: linear-gradient(135deg, #00e676 0%, #00b33f 100%);
+  filter: brightness(1.1);
+}
+
+.buyBtn:active:not(.btnDisabled) {
+  filter: brightness(0.95);
+  transform: scale(0.98);
+}
+
+.btnDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: saturate(0.5) !important;
+}
+
+.btnArrow {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.btnInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.btnLabel {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.btnPayout {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* ── Error Float ── */
+.errorFloat {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: rgba(255, 82, 82, 0.15);
+  border: 1px solid rgba(255, 82, 82, 0.4);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  color: var(--sell-red);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  animation: errorSlideUp 0.3s var(--ease-out);
+  z-index: 25;
+  white-space: nowrap;
+}
+
+/* ── Placing Overlay ── */
+.placingOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 20, 25, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 30;
+}
+
+.placingSpinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spinnerRotate 0.8s linear infinite;
+}
+
+@keyframes spinnerRotate {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes errorSlideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ══════════════ MOBILE ══════════════ */
+@media (max-width: 768px) {
+  .bottomBar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--mobile-tab-bar-height);
+    z-index: 90;
+  }
+
+  .topRow {
+    height: 44px;
+  }
+
+  .amountCurrency {
+    font-size: 16px;
+  }
+
+  .amountInput {
+    width: 50px;
+    font-size: 16px;
+  }
+
+  .amountLabel {
+    font-size: 9px;
+  }
+
+  .amountBtn {
+    width: 38px;
+  }
+
+  .expiryTime {
+    font-size: 15px;
+  }
+
+  .expiryLabel {
+    font-size: 9px;
+  }
+
+  .expiryArrow {
+    width: 36px;
+  }
+
+  .bottomRow {
+    height: 56px;
+  }
+
+  .btnArrow {
+    width: 32px;
+    height: 32px;
+  }
+
+  .btnLabel {
+    font-size: 16px;
+    letter-spacing: 1.5px;
+  }
+
+  .btnPayout {
+    font-size: 12px;
+  }
+
+  .btnInfo {
+    gap: 0;
+  }
+
+  .errorFloat {
+    left: 10px;
+    right: 10px;
+    transform: none;
+    font-size: 12px;
+    bottom: calc(100% + 4px);
+  }
+}

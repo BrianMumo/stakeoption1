@@ -1,0 +1,56 @@
+/* ══════════════════════════════════════════════════
+   ExpertOption-style Chart Drawing Toolbar
+   ══════════════════════════════════════════════════ */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  gap: 6px;
+}
+
+.toolGroup {
+  display: flex;
+  gap: 2px;
+}
+
+.tool {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) ease;
+}
+
+.tool:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.tool.active {
+  color: var(--accent-blue);
+  background: rgba(33, 150, 243, 0.1);
+}
+
+.separator {
+  width: 1px;
+  height: 22px;
+  background: var(--border-subtle);
+  margin: 0 6px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ══════════════ MOBILE ══════════════ */
+@media (max-width: 768px) {
+  .toolbar {
+    display: none;
+  }
+}

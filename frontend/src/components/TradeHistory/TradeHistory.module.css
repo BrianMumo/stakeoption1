@@ -1,0 +1,192 @@
+.panel {
+  position: fixed;
+  top: var(--header-height);
+  right: var(--panel-width);
+  bottom: 0;
+  width: 320px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 80;
+  animation: slideInLeft var(--duration-normal) var(--ease-out);
+  overflow-y: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) ease;
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.section {
+  padding: 12px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.activeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--buy-green);
+  animation: pulse 1.5s ease infinite;
+}
+
+.tradeItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--duration-fast) ease;
+  animation: slideUp var(--duration-normal) var(--ease-out);
+}
+
+.tradeItem:hover {
+  background: var(--bg-hover);
+}
+
+.tradeWon {
+  border-left: 3px solid var(--buy-green);
+}
+
+.tradeLost {
+  border-left: 3px solid var(--sell-red);
+}
+
+.tradeLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.direction {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.dirBuy {
+  background: var(--buy-green-bg);
+  color: var(--buy-green);
+}
+
+.dirSell {
+  background: var(--sell-red-bg);
+  color: var(--sell-red);
+}
+
+.tradeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tradeAsset {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tradeTime {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.tradeRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.tradeResult {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultWon {
+  color: var(--buy-green);
+}
+
+.resultLost {
+  color: var(--sell-red);
+}
+
+.tradeAmount {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tradeStatus {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-blue);
+}
+
+.statusWon {
+  color: var(--buy-green);
+}
+
+.statusLost {
+  color: var(--sell-red);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}

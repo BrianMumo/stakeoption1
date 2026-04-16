@@ -1,0 +1,155 @@
+/* ══════════════════════════════════════════════════
+   Trade Result Toast — Non-intrusive notification
+   Slides in from top-right, auto-dismisses
+   ══════════════════════════════════════════════════ */
+
+.toast {
+  position: fixed;
+  top: calc(var(--header-height) + 16px);
+  right: calc(var(--right-sidebar-width) + 16px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  cursor: pointer;
+  min-width: 220px;
+  overflow: hidden;
+
+  /* Entry animation */
+  opacity: 0;
+  transform: translateX(100px) scale(0.9);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.toastVisible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.toastWon {
+  background: rgba(0, 200, 83, 0.12);
+  border: 1px solid rgba(0, 200, 83, 0.35);
+}
+
+.toastLost {
+  background: rgba(255, 82, 82, 0.12);
+  border: 1px solid rgba(255, 82, 82, 0.35);
+}
+
+/* ── Icon ── */
+.toastIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.iconWon {
+  background: rgba(0, 200, 83, 0.2);
+  color: #00e676;
+}
+
+.iconLost {
+  background: rgba(255, 82, 82, 0.2);
+  color: #ff5252;
+}
+
+/* ── Content ── */
+.toastContent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toastAmount {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.3px;
+}
+
+.amountWon {
+  color: #00e676;
+}
+
+.amountLost {
+  color: #ff5252;
+}
+
+.toastDetail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ── Progress bar (auto-dismiss countdown) ── */
+.toastProgress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.progressBar {
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(1);
+  transition: none;
+}
+
+.progressActive {
+  animation: progressShrink 3s linear forwards;
+}
+
+.progressWon {
+  background: #00c853;
+}
+
+.progressLost {
+  background: #ff5252;
+}
+
+@keyframes progressShrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* ══════════════ MOBILE ══════════════ */
+@media (max-width: 768px) {
+  .toast {
+    top: calc(var(--header-height) + 8px);
+    right: 12px;
+    left: 12px;
+    min-width: 0;
+    padding: 12px 16px;
+    gap: 10px;
+    transform: translateY(-100px) scale(0.95);
+  }
+
+  .toastVisible {
+    transform: translateY(0) scale(1);
+  }
+
+  .toastIcon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .toastAmount {
+    font-size: 16px;
+  }
+
+  .toastDetail {
+    font-size: 11px;
+  }
+}
