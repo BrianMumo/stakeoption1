@@ -2,63 +2,41 @@
  * M-Pesa Daraja API Service
  * Handles STK Push (Lipa na M-Pesa Online) for deposits
  * and B2C for withdrawals.
+ * Uses axios for reliable HTTPS connectivity.
  */
 
-const https = require('https');
+const axios = require('axios');
 
-const REQUEST_TIMEOUT = 15000; // 15 seconds
+const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 class MpesaService {
   constructor() {
     this.consumerKey = process.env.MPESA_CONSUMER_KEY || '';
     this.consumerSecret = process.env.MPESA_CONSUMER_SECRET || '';
-    this.shortcode = process.env.MPESA_SHORTCODE || '174379'; // Sandbox default
+    this.shortcode = process.env.MPESA_SHORTCODE || '174379';
     this.passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
     this.callbackUrl = process.env.MPESA_CALLBACK_URL || 'https://example.com/api/finances/mpesa/callback';
     this.environment = process.env.MPESA_ENVIRONMENT || 'sandbox';
     
     this.baseUrl = this.environment === 'production'
-      ? 'api.safaricom.co.ke'
-      : 'sandbox.safaricom.co.ke';
+      ? 'https://api.safaricom.co.ke'
+      : 'https://sandbox.safaricom.co.ke';
     
     this.accessToken = null;
     this.tokenExpiry = 0;
 
-    console.log(`[M-Pesa] Environment: ${this.environment} → ${this.baseUrl}`);
+    // Create axios instance with defaults
+    this.http = axios.create({
+      baseURL: this.baseUrl,
+      timeout: REQUEST_TIMEOUT,
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    console.log(`[M-Pesa] Environment: ${this.environment}`);
+    console.log(`[M-Pesa] Base URL: ${this.baseUrl}`);
     console.log(`[M-Pesa] Shortcode: ${this.shortcode}`);
     console.log(`[M-Pesa] Callback: ${this.callbackUrl}`);
     console.log(`[M-Pesa] Configured: ${this.isConfigured()}`);
-  }
-
-  /**
-   * Make an HTTPS request with timeout
-   */
-  _request(options, payload = null) {
-    return new Promise((resolve, reject) => {
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (e) {
-            reject(new Error(`Invalid JSON response: ${data.substring(0, 200)}`));
-          }
-        });
-      });
-
-      req.setTimeout(REQUEST_TIMEOUT, () => {
-        req.destroy();
-        reject(new Error(`M-Pesa request timed out after ${REQUEST_TIMEOUT / 1000}s`));
-      });
-
-      req.on('error', (err) => {
-        reject(new Error(`M-Pesa request failed: ${err.message}`));
-      });
-
-      if (payload) req.write(payload);
-      req.end();
-    });
   }
 
   /**
@@ -71,19 +49,23 @@ class MpesaService {
 
     const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
 
-    const parsed = await this._request({
-      hostname: this.baseUrl,
-      path: '/oauth/v1/generate?grant_type=client_credentials',
-      method: 'GET',
-      headers: { 'Authorization': `Basic ${auth}` },
-    });
+    try {
+      const response = await this.http.get('/oauth/v1/generate?grant_type=client_credentials', {
+        headers: { 'Authorization': `Basic ${auth}` }
+      });
 
-    if (parsed.access_token) {
-      this.accessToken = parsed.access_token;
-      this.tokenExpiry = Date.now() + (parseInt(parsed.expires_in) - 60) * 1000;
-      return this.accessToken;
-    } else {
-      throw new Error('Failed to get M-Pesa access token: ' + JSON.stringify(parsed));
+      const data = response.data;
+      if (data.access_token) {
+        this.accessToken = data.access_token;
+        this.tokenExpiry = Date.now() + (parseInt(data.expires_in) - 60) * 1000;
+        console.log('[M-Pesa] Access token obtained successfully');
+        return this.accessToken;
+      } else {
+        throw new Error('No access_token in response: ' + JSON.stringify(data));
+      }
+    } catch (err) {
+      const msg = err.response ? JSON.stringify(err.response.data) : err.message;
+      throw new Error(`M-Pesa auth failed: ${msg}`);
     }
   }
 
@@ -131,7 +113,7 @@ class MpesaService {
     const { password, timestamp } = this.getPassword();
     const formattedPhone = this.formatPhone(phone);
 
-    const payload = JSON.stringify({
+    const payload = {
       BusinessShortCode: this.shortcode,
       Password: password,
       Timestamp: timestamp,
@@ -143,20 +125,21 @@ class MpesaService {
       CallBackURL: this.callbackUrl,
       AccountReference: accountRef,
       TransactionDesc: `StakeOption Deposit - ${accountRef}`
-    });
+    };
 
-    console.log(`[M-Pesa] STK Push: KES ${Math.ceil(amount)} to ${formattedPhone} via ${this.baseUrl}`);
+    console.log(`[M-Pesa] STK Push: KES ${Math.ceil(amount)} to ${formattedPhone}`);
 
-    return this._request({
-      hostname: this.baseUrl,
-      path: '/mpesa/stkpush/v1/processrequest',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-      },
-    }, payload);
+    try {
+      const response = await this.http.post('/mpesa/stkpush/v1/processrequest', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('[M-Pesa] STK Push response:', JSON.stringify(response.data));
+      return response.data;
+    } catch (err) {
+      const msg = err.response ? JSON.stringify(err.response.data) : err.message;
+      console.error('[M-Pesa] STK Push error:', msg);
+      throw new Error(`M-Pesa STK Push failed: ${msg}`);
+    }
   }
 
   /**
@@ -166,23 +149,22 @@ class MpesaService {
     const token = await this.getAccessToken();
     const { password, timestamp } = this.getPassword();
 
-    const payload = JSON.stringify({
+    const payload = {
       BusinessShortCode: this.shortcode,
       Password: password,
       Timestamp: timestamp,
       CheckoutRequestID: checkoutRequestID
-    });
+    };
 
-    return this._request({
-      hostname: this.baseUrl,
-      path: '/mpesa/stkpushquery/v1/query',
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(payload),
-      },
-    }, payload);
+    try {
+      const response = await this.http.post('/mpesa/stkpushquery/v1/query', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (err) {
+      const msg = err.response ? JSON.stringify(err.response.data) : err.message;
+      throw new Error(`M-Pesa STK Query failed: ${msg}`);
+    }
   }
 
   /**
@@ -233,7 +215,6 @@ class MpesaService {
    */
   async simulateDeposit(phone, amount, accountRef) {
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
     return {
       success: true,
       simulated: true,
@@ -249,7 +230,6 @@ class MpesaService {
    */
   async simulateWithdrawal(phone, amount, accountRef) {
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
     return {
       success: true,
       simulated: true,
