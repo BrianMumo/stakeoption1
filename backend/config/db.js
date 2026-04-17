@@ -38,7 +38,7 @@ async function createUser(email, username, password, role = 'user') {
     password_hash,
     role,
     status: 'active',
-    balance: 5000.00,
+    balance: 0,
     demo_balance: 5000.00,
     account_type: 'demo',
   });
@@ -49,7 +49,7 @@ async function createUser(email, username, password, role = 'user') {
     username: user.username,
     role: user.role,
     status: 'active',
-    balance: 5000.00,
+    balance: 0,
     demo_balance: 5000.00,
     account_type: 'demo'
   };

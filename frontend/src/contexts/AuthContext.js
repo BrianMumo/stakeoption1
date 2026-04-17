@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { login as apiLogin, register as apiRegister, getProfile } from '@/lib/api';
+import { API_BASE } from '@/lib/constants';
 
 const AuthContext = createContext(null);
 
@@ -77,6 +78,24 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  // Reset demo balance back to $5,000
+  const resetDemoBalance = useCallback(async () => {
+    const storedToken = localStorage.getItem('token');
+    const res = await fetch(`${API_BASE}/api/user/reset-demo`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${storedToken}`,
+      },
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setUser((prev) => prev ? { ...prev, demo_balance: data.demo_balance } : prev);
+      return data;
+    }
+    throw new Error(data.error || 'Failed to reset demo balance');
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -88,7 +107,8 @@ export function AuthProvider({ children }) {
       accountType,
       setAccountType,
       activeBalance,
-      updateBalance
+      updateBalance,
+      resetDemoBalance
     }}>
       {children}
     </AuthContext.Provider>

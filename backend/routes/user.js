@@ -1,6 +1,6 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
-const { getUserById } = require('../config/db');
+const { getUserById, updateDemoBalance } = require('../config/db');
 
 const router = express.Router();
 
@@ -32,4 +32,17 @@ router.get('/balance', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/user/reset-demo — Reset demo balance to $5,000
+router.post('/reset-demo', authMiddleware, async (req, res) => {
+  try {
+    const DEMO_STARTING_BALANCE = 5000.00;
+    await updateDemoBalance(req.user.id, DEMO_STARTING_BALANCE);
+    res.json({ message: 'Demo balance reset successfully.', demo_balance: DEMO_STARTING_BALANCE });
+  } catch (err) {
+    console.error('Reset demo error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 module.exports = router;
+

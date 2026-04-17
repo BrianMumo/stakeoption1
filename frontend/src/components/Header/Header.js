@@ -5,8 +5,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import styles from './Header.module.css';
 
 export default function Header({ currentAsset, currentPrice, priceDirection, onOpenAssetSelector, onOpenFinances }) {
-  const { user, logout, accountType, setAccountType, activeBalance } = useAuth();
+  const { user, logout, accountType, setAccountType, activeBalance, resetDemoBalance } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const dropRef = useRef(null);
 
   // Click outside to close dropdown
@@ -107,6 +108,30 @@ export default function Header({ currentAsset, currentPrice, priceDirection, onO
                       ? 'Practice with virtual funds. No risk!'
                       : 'Trading with real money. Profit is yours!'}
                   </div>
+
+                  {isDemo && (
+                    <button
+                      className={styles.resetDemoBtn}
+                      onClick={async () => {
+                        setResetting(true);
+                        try {
+                          await resetDemoBalance();
+                        } catch (err) {
+                          console.error(err);
+                        } finally {
+                          setResetting(false);
+                          setDropdownOpen(false);
+                        }
+                      }}
+                      disabled={resetting}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="23 4 23 10 17 10"/>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                      </svg>
+                      {resetting ? 'Resetting...' : 'Reset Demo Balance'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
