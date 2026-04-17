@@ -140,12 +140,7 @@ export default function Header({ currentAsset, currentPrice, priceDirection, onO
               Finances
             </button>
           </>
-        ) : (
-          <div className={styles.authButtons}>
-            <a href="/login" className={styles.loginBtn}>Login</a>
-            <a href="/register" className={styles.registerBtn}>Register</a>
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* Right: Chat + Avatar */}
