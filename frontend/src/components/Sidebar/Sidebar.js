@@ -10,6 +10,11 @@ const NAV_ITEMS = [
       <polyline points="16 7 22 7 22 13"/>
     </svg>
   )},
+  { id: 'trades', label: 'Trades', mobile: true, icon: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+  )},
   { id: 'finances', label: 'Finances', mobile: true, icon: (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="2" y="4" width="20" height="16" rx="2"/>
@@ -72,8 +77,9 @@ export default function Sidebar({ activeTab, onTabChange, onToggleHistory }) {
             key={item.id}
             className={`${styles.navItem} ${activeTab === item.id ? styles.active : ''}`}
             onClick={() => {
-              if (item.id === 'history') {
+              if (item.id === 'trades') {
                 onToggleHistory?.();
+                return;
               }
               onTabChange?.(item.id);
             }}
