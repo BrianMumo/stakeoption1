@@ -81,11 +81,11 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
           borderColor: 'rgba(255, 255, 255, 0.08)',
           timeVisible: true,
           secondsVisible: true,
-          rightOffset: 30,
+          rightOffset: 12,
           lockVisibleTimeRangeOnResize: true,
           fixLeftEdge: false,
           fixRightEdge: false,
-          minBarSpacing: 6,
+          minBarSpacing: 3,
           shiftVisibleRangeOnNewBar: true,
         },
         handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -193,10 +193,10 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
         const expiresAt = new Date(t.expires_at).getTime() / 1000;
         return Math.max(0, expiresAt - now);
       }));
-      const barsNeeded = Math.max(30, Math.ceil(maxExpiry / 2) + 10);
+      const barsNeeded = Math.max(12, Math.ceil(maxExpiry) + 5);
       chartRef.current.timeScale().applyOptions({ rightOffset: barsNeeded });
     } else {
-      chartRef.current.timeScale().applyOptions({ rightOffset: 30 });
+      chartRef.current.timeScale().applyOptions({ rightOffset: 12 });
     }
   }, [activeTrades, chartReady]);
 

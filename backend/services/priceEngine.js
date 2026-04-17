@@ -221,9 +221,11 @@ class PriceEngine {
 
   _generateHistory(asset, config) {
     let price = config.basePrice;
-    const now = Date.now();
-    const tickMs = config.tickRate === '1s' ? 1000 : 500;
+    const now = Math.floor(Date.now() / 1000);
     const points = 300;
+    // Space each point 2 seconds apart for unique timestamps
+    // This gives us 600 seconds (10 minutes) of visible history
+    const spacing = 2;
 
     for (let i = points; i >= 0; i--) {
       const z = this._normalRandom();
@@ -248,7 +250,7 @@ class PriceEngine {
       price = parseFloat(price.toFixed(config.decimals));
 
       this.priceHistory[asset].push({
-        time: Math.floor((now - i * tickMs) / 1000),
+        time: now - (i * spacing),
         value: price
       });
     }
