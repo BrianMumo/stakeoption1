@@ -170,70 +170,115 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Hero Visual: Animated Chart */}
+        {/* Hero Visual: Laptop Dashboard Mockup */}
         <div className={styles.heroVisual}>
-          {/* Floating cards */}
-          <div className={`${styles.floatingCard} ${styles.floatingCard1}`}>
-            <div className={styles.floatingLabel}>Profit</div>
-            <div className={styles.floatingValue}>+$1,247.80</div>
-          </div>
-          <div className={`${styles.floatingCard} ${styles.floatingCard2}`}>
-            <div className={styles.floatingPill}>
-              <span className={styles.floatingPillGreen}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="18 15 12 9 6 15"/>
-                </svg>
-              </span>
-              <span style={{color: '#10b981', fontWeight: 700}}>Win Rate 87%</span>
-            </div>
-          </div>
-          <div className={`${styles.floatingCard} ${styles.floatingCard3}`}>
-            <div className={styles.floatingLabel}>Active Trades</div>
-            <div style={{fontSize: '16px', fontWeight: 800, color: '#38bdf8'}}>24</div>
-          </div>
-
-          <div className={styles.heroChartContainer}>
-            <div className={styles.heroChartHeader}>
-              <div className={styles.heroChartAsset}>
-                <div className={styles.heroChartDot} />
-                <span className={styles.heroChartName}>BTC / USD</span>
+          <div className={styles.laptopFrame}>
+            {/* Laptop Screen */}
+            <div className={styles.laptopScreen}>
+              {/* Dashboard Header */}
+              <div className={styles.dashHeader}>
+                <div className={styles.dashLogo}>
+                  <svg width="14" height="14" viewBox="0 0 32 32" fill="none">
+                    <path d="M16 2L28 8v8c0 7.732-5.373 14.953-12 16C9.373 30.953 4 23.732 4 16V8l12-6z" fill="#38bdf8" opacity="0.9"/>
+                    <path d="M11 16l3 3 7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  <span>StakeOption</span>
+                </div>
+                <div className={styles.dashBalance}>
+                  <span className={styles.dashBalanceAmt}>$12,847.50</span>
+                  <span className={styles.dashBalanceLabel}>demo</span>
+                </div>
               </div>
-              <span className={styles.heroChartPrice}>$67,432.18</span>
+
+              {/* Dashboard Body */}
+              <div className={styles.dashBody}>
+                {/* Mini Sidebar */}
+                <div className={styles.dashSidebar}>
+                  <div className={`${styles.dashSideIcon} ${styles.dashSideActive}`}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                  </div>
+                  <div className={styles.dashSideIcon}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  </div>
+                  <div className={styles.dashSideIcon}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </div>
+                </div>
+
+                {/* Chart Area */}
+                <div className={styles.dashChart}>
+                  <div className={styles.dashChartTop}>
+                    <div className={styles.dashAssetInfo}>
+                      <span className={styles.dashAssetDot}></span>
+                      <span className={styles.dashAssetName}>Volatility 75</span>
+                    </div>
+                    <span className={styles.dashAssetPrice}>8,190.97</span>
+                  </div>
+                  <svg className={styles.dashChartSvg} viewBox="0 0 400 120" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="dashLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#38bdf8"/>
+                        <stop offset="50%" stopColor="#818cf8"/>
+                        <stop offset="100%" stopColor="#10b981"/>
+                      </linearGradient>
+                      <linearGradient id="dashAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="rgba(56, 189, 248, 0.2)"/>
+                        <stop offset="100%" stopColor="rgba(56, 189, 248, 0)"/>
+                      </linearGradient>
+                    </defs>
+                    <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5"/>
+                    <line x1="0" y1="60" x2="400" y2="60" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5"/>
+                    <line x1="0" y1="90" x2="400" y2="90" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5"/>
+                    <path d="M0,85 Q20,80 40,75 T80,65 T120,70 T160,50 T200,55 T240,35 T280,45 T320,25 T360,30 T400,15 L400,120 L0,120 Z" fill="url(#dashAreaGrad)"/>
+                    <path className={styles.dashChartLine} d="M0,85 Q20,80 40,75 T80,65 T120,70 T160,50 T200,55 T240,35 T280,45 T320,25 T360,30 T400,15" fill="none" stroke="url(#dashLineGrad)" strokeWidth="2"/>
+                    {/* Trade marker zone */}
+                    <rect className={styles.dashTradeZone} x="240" y="0" width="80" height="120" fill="rgba(16, 185, 129, 0.06)" rx="2"/>
+                    <line x1="240" y1="0" x2="240" y2="120" stroke="#10b981" strokeWidth="0.8" strokeDasharray="3,3" opacity="0.5"/>
+                    <line x1="320" y1="0" x2="320" y2="120" stroke="#10b981" strokeWidth="0.8" strokeDasharray="3,3" opacity="0.5"/>
+                    {/* Pulse dot */}
+                    <circle cx="400" cy="15" r="3" fill="#10b981">
+                      <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite"/>
+                      <animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                  </svg>
+                </div>
+
+                {/* Trading Panel */}
+                <div className={styles.dashPanel}>
+                  <div className={styles.dashPanelInvest}>
+                    <span className={styles.dashPanelLabel}>Amount</span>
+                    <span className={styles.dashPanelAmount}>$250</span>
+                  </div>
+                  <div className={styles.dashPanelTime}>
+                    <span className={styles.dashPanelLabel}>Expiry</span>
+                    <span className={styles.dashPanelTimer}>00:30</span>
+                  </div>
+                  <div className={styles.dashPanelPayout}>
+                    <span className={styles.dashPanelLabel}>Payout</span>
+                    <span className={styles.dashPanelPayoutVal}>90%</span>
+                  </div>
+                  <div className={styles.dashButtons}>
+                    <button className={styles.dashSellBtn}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 15 12 21 6 15"/></svg>
+                      SELL
+                    </button>
+                    <button className={styles.dashBuyBtn}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="18 9 12 3 6 9"/></svg>
+                      BUY
+                    </button>
+                  </div>
+                  {/* Animated profit toast */}
+                  <div className={styles.dashToast}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>+$225.00</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <svg className={styles.heroChartSvg} viewBox="0 0 500 200" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="heroLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#38bdf8"/>
-                  <stop offset="50%" stopColor="#818cf8"/>
-                  <stop offset="100%" stopColor="#10b981"/>
-                </linearGradient>
-                <linearGradient id="heroAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="rgba(56, 189, 248, 0.15)"/>
-                  <stop offset="100%" stopColor="rgba(56, 189, 248, 0)"/>
-                </linearGradient>
-              </defs>
-              <path
-                className={styles.heroChartArea}
-                d="M0,140 Q25,130 50,120 T100,100 T150,115 T200,80 T250,90 T300,60 T350,75 T400,45 T450,55 T500,30 L500,200 L0,200 Z"
-              />
-              <path
-                className={styles.heroChartLine}
-                d="M0,140 Q25,130 50,120 T100,100 T150,115 T200,80 T250,90 T300,60 T350,75 T400,45 T450,55 T500,30"
-              />
-              {/* Grid lines */}
-              <line x1="0" y1="50" x2="500" y2="50" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
-              <line x1="0" y1="100" x2="500" y2="100" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
-              <line x1="0" y1="150" x2="500" y2="150" stroke="rgba(255,255,255,0.03)" strokeWidth="1"/>
-              {/* Current price dot */}
-              <circle cx="500" cy="30" r="4" fill="#10b981">
-                <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite"/>
-                <animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite"/>
-              </circle>
-              <circle cx="500" cy="30" r="8" fill="none" stroke="#10b981" strokeWidth="1" opacity="0.3">
-                <animate attributeName="r" values="8;16;8" dur="2s" repeatCount="indefinite"/>
-                <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite"/>
-              </circle>
-            </svg>
+            {/* Laptop Base */}
+            <div className={styles.laptopBase}>
+              <div className={styles.laptopNotch}></div>
+            </div>
           </div>
         </div>
       </section>
