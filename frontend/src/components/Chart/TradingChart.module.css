@@ -306,7 +306,7 @@
   position: absolute;
   top: 0;
   width: 0;
-  border-left: 2px dashed rgba(255, 255, 255, 0.5);
+  border-left: 1px dashed rgba(255, 255, 255, 0.3);
   pointer-events: none;
   z-index: 7;
   animation: vertLineFadeIn 0.4s ease-out;
@@ -381,11 +381,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── ExpertOption-style Bright Orange Finish Line ── */
+/* ── ExpertOption-style Sleek Orange Finish Line ── */
 .finishLine {
-  border-left: 3px solid #FF9800 !important;
-  opacity: 1 !important;
-  box-shadow: 0 0 12px rgba(255, 152, 0, 0.6), 0 0 4px rgba(255, 152, 0, 0.8);
+  border-left: 1px solid #FF9800 !important;
+  opacity: 0.9 !important;
+  box-shadow: 0 0 6px rgba(255, 152, 0, 0.3), 0 0 2px rgba(255, 152, 0, 0.5);
 }
 
 /* ── Y-axis Profit / Loss Labels (ExpertOption-style) ── */
