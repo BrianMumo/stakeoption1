@@ -195,7 +195,11 @@ class MpesaService {
     const token = await this.getAccessToken();
     const formattedPhone = this.formatPhone(phone);
 
+    // Generate unique OriginatorConversationID (required by B2C v3)
+    const originatorId = `B2C_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+
     const payload = {
+      OriginatorConversationID: originatorId,
       InitiatorName: this.b2cInitiatorName,
       SecurityCredential: this.b2cSecurityCredential,
       CommandID: 'BusinessPayment',
