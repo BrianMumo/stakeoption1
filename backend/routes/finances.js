@@ -19,6 +19,20 @@ const {
 
 const router = express.Router();
 
+// Debug: Check M-Pesa config (remove in production later)
+router.get('/mpesa/debug', (req, res) => {
+  res.json({
+    environment: mpesa.environment,
+    baseUrl: mpesa.baseUrl,
+    shortcode: mpesa.shortcode,
+    configured: mpesa.isConfigured(),
+    callbackUrl: mpesa.callbackUrl,
+    hasConsumerKey: !!mpesa.consumerKey,
+    hasConsumerSecret: !!mpesa.consumerSecret,
+    hasPasskey: !!mpesa.passkey,
+  });
+});
+
 // ─────────────────────────────────────────────────
 // POST /api/finances/deposit — Initiate M-Pesa deposit (amount in USD)
 // ─────────────────────────────────────────────────
