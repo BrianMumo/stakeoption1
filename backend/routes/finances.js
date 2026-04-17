@@ -30,6 +30,14 @@ router.get('/mpesa/debug', (req, res) => {
     hasConsumerKey: !!mpesa.consumerKey,
     hasConsumerSecret: !!mpesa.consumerSecret,
     hasPasskey: !!mpesa.passkey,
+    b2c: {
+      configured: mpesa.isB2CConfigured(),
+      shortcode: mpesa.b2cShortcode,
+      hasInitiatorName: !!mpesa.b2cInitiatorName,
+      hasSecurityCredential: !!mpesa.b2cSecurityCredential,
+      resultUrl: mpesa.b2cResultUrl,
+      timeoutUrl: mpesa.b2cTimeoutUrl,
+    }
   });
 });
 
@@ -260,7 +268,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
         await updateBalance(userId, balance);
         await updateTransaction(tx.id, { status: 'failed' });
         return res.status(500).json({
-          error: 'Withdrawal failed. Your balance has been restored. Please try again.'
+          error: `Withdrawal failed: ${b2cErr.message}. Your balance has been restored.`
         });
       }
     } else if (mpesa.isConfigured()) {
