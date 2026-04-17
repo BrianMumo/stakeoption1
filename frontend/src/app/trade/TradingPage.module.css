@@ -161,4 +161,244 @@
     max-height: 60vh;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
+
+  .overlayPanel {
+    left: 0;
+  }
+
+  .overlayHeader {
+    padding: 20px 20px 14px;
+  }
+
+  .overlayBody {
+    padding: 20px;
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   OVERLAY PANELS (Profile, Education, Help, Settings)
+   ══════════════════════════════════════════════════ */
+.overlayPanel {
+  position: fixed;
+  top: var(--header-height);
+  left: var(--sidebar-width);
+  right: 0;
+  bottom: 0;
+  background: rgba(6, 10, 19, 0.95);
+  backdrop-filter: blur(12px);
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  animation: overlayFadeIn 0.3s ease;
+  overflow-y: auto;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.overlayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.overlayTitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.overlayClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.overlayClose:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.overlayBody {
+  padding: 24px 32px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Profile Panel ── */
+.profilePanel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.profileAvatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.3);
+}
+
+.profileName {
+  font-size: 22px;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.profileEmail {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 28px;
+}
+
+.profileStats {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.profileStat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.profileStatLabel {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.profileStatValue {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ── Info Panel (Education / Help) ── */
+.infoPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.infoCard {
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.infoCard:hover {
+  border-color: rgba(56, 189, 248, 0.15);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.infoIcon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.infoCard h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 8px;
+}
+
+.infoCard p {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.7;
+}
+
+/* ── Settings Panel ── */
+.settingsGroup {
+  margin-bottom: 24px;
+}
+
+.settingsGroupTitle {
+  font-size: 11px;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.settingsItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.settingsValue {
+  font-weight: 600;
+  color: #38bdf8;
+  font-size: 13px;
+}
+
+/* ── Shared overlay action button ── */
+.overlayAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.2);
+  color: #f43f5e;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.overlayAction:hover {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: rgba(244, 63, 94, 0.35);
 }

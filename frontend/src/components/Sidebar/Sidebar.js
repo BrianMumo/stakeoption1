@@ -42,7 +42,7 @@ const NAV_ITEMS = [
   )},
 ];
 
-export default function Sidebar({ activeTab, onTabChange, onToggleHistory }) {
+export default function Sidebar({ activeTab, onTabChange, onToggleHistory, onLogout }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -93,7 +93,11 @@ export default function Sidebar({ activeTab, onTabChange, onToggleHistory }) {
       </nav>
 
       <div className={styles.bottomSection}>
-        <button className={styles.navItem} title="Settings">
+        <button
+          className={styles.navItem}
+          title="Settings"
+          onClick={() => onTabChange?.('settings')}
+        >
           <span className={styles.navIcon}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/>
@@ -103,7 +107,11 @@ export default function Sidebar({ activeTab, onTabChange, onToggleHistory }) {
           <span className={styles.navLabel}>Settings</span>
         </button>
 
-        <button className={styles.navItem} title="Logout">
+        <button
+          className={styles.navItem}
+          title="Logout"
+          onClick={() => onLogout?.()}
+        >
           <span className={styles.navIcon}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
