@@ -11,12 +11,13 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 class MpesaService {
   constructor() {
-    this.consumerKey = process.env.MPESA_CONSUMER_KEY || '';
-    this.consumerSecret = process.env.MPESA_CONSUMER_SECRET || '';
-    this.shortcode = process.env.MPESA_SHORTCODE || '174379';
-    this.passkey = process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919';
-    this.callbackUrl = process.env.MPESA_CALLBACK_URL || 'https://example.com/api/finances/mpesa/callback';
-    this.environment = process.env.MPESA_ENVIRONMENT || 'sandbox';
+    // Trim all env vars to remove accidental whitespace/newlines
+    this.consumerKey = (process.env.MPESA_CONSUMER_KEY || '').trim();
+    this.consumerSecret = (process.env.MPESA_CONSUMER_SECRET || '').trim();
+    this.shortcode = (process.env.MPESA_SHORTCODE || '174379').trim();
+    this.passkey = (process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919').trim();
+    this.callbackUrl = (process.env.MPESA_CALLBACK_URL || 'https://example.com/api/finances/mpesa/callback').trim();
+    this.environment = (process.env.MPESA_ENVIRONMENT || 'sandbox').trim();
     
     this.baseUrl = this.environment === 'production'
       ? 'https://api.safaricom.co.ke'
@@ -37,6 +38,13 @@ class MpesaService {
     console.log(`[M-Pesa] Shortcode: ${this.shortcode}`);
     console.log(`[M-Pesa] Callback: ${this.callbackUrl}`);
     console.log(`[M-Pesa] Configured: ${this.isConfigured()}`);
+
+    // Test connectivity on startup
+    if (this.isConfigured()) {
+      this.getAccessToken()
+        .then(() => console.log('[M-Pesa] ✅ API connectivity OK — access token obtained'))
+        .catch(err => console.error('[M-Pesa] ❌ API connectivity FAILED:', err.message));
+    }
   }
 
   /**
