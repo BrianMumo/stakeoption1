@@ -361,9 +361,10 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
 
     try {
       if (!initialFitDoneRef.current) {
-        // First load: set all data and fit to view
+        // First load: set all data — do NOT use fitContent as it overrides
+        // rightOffset and minBarSpacing, compressing data unnaturally.
+        // Just set data and scroll to real-time position.
         seriesRef.current.setData(cleaned);
-        chartRef.current.timeScale().fitContent();
         initialFitDoneRef.current = true;
       } else {
         // Streaming: update with latest point only
@@ -376,7 +377,7 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
       // On any error, try full reset
       try {
         seriesRef.current.setData(cleaned);
-        chartRef.current.timeScale().fitContent();
+        chartRef.current.timeScale().scrollToRealTime();
       } catch (_) {}
     }
 
