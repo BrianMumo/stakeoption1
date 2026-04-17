@@ -6,6 +6,8 @@
 
 const https = require('https');
 
+const REQUEST_TIMEOUT = 15000; // 15 seconds
+
 class MpesaService {
   constructor() {
     this.consumerKey = process.env.MPESA_CONSUMER_KEY || '';
@@ -21,51 +23,68 @@ class MpesaService {
     
     this.accessToken = null;
     this.tokenExpiry = 0;
+
+    console.log(`[M-Pesa] Environment: ${this.environment} → ${this.baseUrl}`);
+    console.log(`[M-Pesa] Shortcode: ${this.shortcode}`);
+    console.log(`[M-Pesa] Callback: ${this.callbackUrl}`);
+    console.log(`[M-Pesa] Configured: ${this.isConfigured()}`);
+  }
+
+  /**
+   * Make an HTTPS request with timeout
+   */
+  _request(options, payload = null) {
+    return new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(new Error(`Invalid JSON response: ${data.substring(0, 200)}`));
+          }
+        });
+      });
+
+      req.setTimeout(REQUEST_TIMEOUT, () => {
+        req.destroy();
+        reject(new Error(`M-Pesa request timed out after ${REQUEST_TIMEOUT / 1000}s`));
+      });
+
+      req.on('error', (err) => {
+        reject(new Error(`M-Pesa request failed: ${err.message}`));
+      });
+
+      if (payload) req.write(payload);
+      req.end();
+    });
   }
 
   /**
    * Get OAuth access token from Daraja API
    */
   async getAccessToken() {
-    // Return cached token if still valid
     if (this.accessToken && Date.now() < this.tokenExpiry) {
       return this.accessToken;
     }
 
     const auth = Buffer.from(`${this.consumerKey}:${this.consumerSecret}`).toString('base64');
 
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: this.baseUrl,
-        path: '/oauth/v1/generate?grant_type=client_credentials',
-        method: 'GET',
-        headers: {
-          'Authorization': `Basic ${auth}`,
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            if (parsed.access_token) {
-              this.accessToken = parsed.access_token;
-              this.tokenExpiry = Date.now() + (parseInt(parsed.expires_in) - 60) * 1000;
-              resolve(this.accessToken);
-            } else {
-              reject(new Error('Failed to get M-Pesa access token'));
-            }
-          } catch (e) {
-            reject(new Error('Invalid M-Pesa token response'));
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.end();
+    const parsed = await this._request({
+      hostname: this.baseUrl,
+      path: '/oauth/v1/generate?grant_type=client_credentials',
+      method: 'GET',
+      headers: { 'Authorization': `Basic ${auth}` },
     });
+
+    if (parsed.access_token) {
+      this.accessToken = parsed.access_token;
+      this.tokenExpiry = Date.now() + (parseInt(parsed.expires_in) - 60) * 1000;
+      return this.accessToken;
+    } else {
+      throw new Error('Failed to get M-Pesa access token: ' + JSON.stringify(parsed));
+    }
   }
 
   /**
@@ -106,10 +125,6 @@ class MpesaService {
 
   /**
    * Initiate STK Push (Lipa na M-Pesa Online) for deposit
-   * @param {string} phone - Customer phone number
-   * @param {number} amount - Amount in KES
-   * @param {string} accountRef - Reference for the transaction
-   * @returns {Promise<object>} M-Pesa response
    */
   async stkPush(phone, amount, accountRef) {
     const token = await this.getAccessToken();
@@ -130,41 +145,22 @@ class MpesaService {
       TransactionDesc: `StakeOption Deposit - ${accountRef}`
     });
 
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: this.baseUrl,
-        path: '/mpesa/stkpush/v1/processrequest',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
-        },
-      };
+    console.log(`[M-Pesa] STK Push: KES ${Math.ceil(amount)} to ${formattedPhone} via ${this.baseUrl}`);
 
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            resolve(parsed);
-          } catch (e) {
-            reject(new Error('Invalid M-Pesa STK Push response'));
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.write(payload);
-      req.end();
-    });
+    return this._request({
+      hostname: this.baseUrl,
+      path: '/mpesa/stkpush/v1/processrequest',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, payload);
   }
 
   /**
    * Query STK Push status (check if user has entered PIN)
-   * @param {string} checkoutRequestID - The CheckoutRequestID from stkPush response
-   * @returns {Promise<object>} Query result
    */
   async stkQuery(checkoutRequestID) {
     const token = await this.getAccessToken();
@@ -177,41 +173,20 @@ class MpesaService {
       CheckoutRequestID: checkoutRequestID
     });
 
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: this.baseUrl,
-        path: '/mpesa/stkpushquery/v1/query',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            resolve(parsed);
-          } catch (e) {
-            reject(new Error('Invalid M-Pesa STK Query response'));
-          }
-        });
-      });
-
-      req.on('error', reject);
-      req.write(payload);
-      req.end();
-    });
+    return this._request({
+      hostname: this.baseUrl,
+      path: '/mpesa/stkpushquery/v1/query',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+    }, payload);
   }
 
   /**
    * Parse STK Push callback data
-   * @param {object} body - Callback request body
-   * @returns {object} Parsed callback result
    */
   parseStkCallback(body) {
     try {
@@ -233,7 +208,6 @@ class MpesaService {
         };
       }
 
-      // Extract metadata items
       const metadata = {};
       const items = result.CallbackMetadata?.Item || [];
       for (const item of items) {
@@ -256,10 +230,8 @@ class MpesaService {
 
   /**
    * Simulate a deposit for demo/testing purposes
-   * (Used when M-Pesa credentials are not configured)
    */
   async simulateDeposit(phone, amount, accountRef) {
-    // Simulate 2-second processing delay
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     return {
