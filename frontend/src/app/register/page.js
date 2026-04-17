@@ -120,6 +120,21 @@ export default function RegisterPage() {
       {/* RIGHT PANEL — Form */}
       <div className={styles.rightPanel}>
         <div className={styles.formContainer}>
+          {/* Mobile-only logo (shown when left panel is hidden) */}
+          <Link href="/" className={styles.mobileLogo}>
+            <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+              <defs>
+                <linearGradient id="mGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#38bdf8"/>
+                  <stop offset="100%" stopColor="#818cf8"/>
+                </linearGradient>
+              </defs>
+              <path d="M16 2L28 8v8c0 7.732-5.373 14.953-12 16C9.373 30.953 4 23.732 4 16V8l12-6z" fill="url(#mGrad2)" opacity="0.9"/>
+              <path d="M11 16l3 3 7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className={styles.mobileLogoBrand}>StakeOption</span>
+          </Link>
+
           <div className={styles.formHeader}>
             <h2 className={styles.formTitle}>Create account</h2>
             <p className={styles.formDesc}>Fill in your details to get started</p>
