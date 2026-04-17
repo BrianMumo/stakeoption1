@@ -1583,12 +1583,31 @@
 
 @media (max-width: 768px) {
   .navbar {
-    padding: 0 20px;
-    height: 60px;
+    padding: 0 16px;
+    height: 56px;
   }
 
-  .chatLink {
+  .navCenter {
     display: none;
+  }
+
+  .navBrand {
+    font-size: 17px;
+  }
+
+  .navLogo svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .navLoginBtn {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .navRegisterBtn {
+    padding: 8px 18px;
+    font-size: 13px;
   }
 
   .hero {
