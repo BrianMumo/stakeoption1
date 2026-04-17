@@ -177,14 +177,14 @@ router.post('/mpesa/callback', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────
-// POST /api/finances/withdraw — Initiate withdrawal
+// POST /api/finances/withdraw — Initiate withdrawal (B2C payout)
 // ─────────────────────────────────────────────────
 router.post('/withdraw', authMiddleware, async (req, res) => {
   try {
     const { phone, amount } = req.body;
     const userId = req.user.id;
 
-    // Validation
+    // Validation — amount is in USD
     if (!phone || !amount) {
       return res.status(400).json({ error: 'Phone number and amount are required.' });
     }
@@ -212,7 +212,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
     const newBalance = parseFloat((balance - withdrawAmount).toFixed(2));
     await updateBalance(userId, newBalance);
 
-    const kesAmount = parseFloat((withdrawAmount * 130).toFixed(0));
+    const kesAmount = Math.round(withdrawAmount * KES_PER_USD);
 
     // Create transaction
     const tx = await createTransaction({
@@ -224,15 +224,51 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       reference: `WIT_${Date.now()}_${userId.slice(0, 8)}`
     });
 
-    // Simulate withdrawal (B2C would go here for production)
-    if (mpesa.isConfigured()) {
-      // In production: initiate B2C payment
-      // For now, mark as processing
+    // B2C payout
+    if (mpesa.isB2CConfigured()) {
+      try {
+        const result = await mpesa.b2cPayout(
+          cleanPhone,
+          kesAmount,
+          `StakeOption Withdrawal ${tx.reference}`
+        );
+
+        if (result.ResponseCode === '0' || result.ResponseCode === 0) {
+          // B2C request accepted — update tx with conversation ID
+          await updateTransaction(tx.id, {
+            status: 'processing',
+            reference: result.ConversationID || tx.reference
+          });
+
+          return res.json({
+            success: true,
+            message: `Withdrawal of $${withdrawAmount.toFixed(2)} (KES ${kesAmount.toLocaleString()}) is being sent to your M-Pesa. You'll receive it shortly.`,
+            transactionId: tx.id,
+            balance: newBalance
+          });
+        } else {
+          // B2C rejected — refund balance
+          await updateBalance(userId, balance);
+          await updateTransaction(tx.id, { status: 'failed' });
+          return res.status(400).json({
+            error: result.errorMessage || result.ResponseDescription || 'Withdrawal failed. Your balance has been restored.'
+          });
+        }
+      } catch (b2cErr) {
+        // B2C error — refund balance
+        console.error('[Finances] B2C payout error:', b2cErr.message);
+        await updateBalance(userId, balance);
+        await updateTransaction(tx.id, { status: 'failed' });
+        return res.status(500).json({
+          error: 'Withdrawal failed. Your balance has been restored. Please try again.'
+        });
+      }
+    } else if (mpesa.isConfigured()) {
+      // M-Pesa configured but B2C not — mark as processing (admin manual)
       await updateTransaction(tx.id, { status: 'processing' });
-      
       return res.json({
         success: true,
-        message: `Withdrawal of $${withdrawAmount.toFixed(2)} (KES ${kesAmount.toLocaleString()}) is being processed. You will receive the funds shortly.`,
+        message: `Withdrawal of $${withdrawAmount.toFixed(2)} (KES ${kesAmount.toLocaleString()}) is being processed. You will receive the funds within 24 hours.`,
         transactionId: tx.id,
         balance: newBalance
       });
@@ -257,9 +293,63 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('[Finances] Withdraw error:', err);
-    res.status(500).json({ error: 'Withdrawal failed. Please try again.' });
+    console.error('[Finances] Withdraw error:', err.message || err);
+    res.status(500).json({ error: err.message || 'Withdrawal failed. Please try again.' });
   }
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/finances/mpesa/b2c/result — B2C payout result callback
+// ─────────────────────────────────────────────────
+router.post('/mpesa/b2c/result', async (req, res) => {
+  try {
+    console.log('[M-Pesa] B2C Result callback:', JSON.stringify(req.body));
+    
+    const result = mpesa.parseB2CResult(req.body);
+    
+    if (!result.conversationID) {
+      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+    }
+
+    const tx = await getTransactionByReference(result.conversationID);
+    if (!tx) {
+      console.error('[M-Pesa] B2C: Transaction not found for:', result.conversationID);
+      return res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+    }
+
+    if (result.success) {
+      await updateTransaction(tx.id, {
+        status: 'completed',
+        mpesa_receipt: result.mpesaReceiptNumber || result.transactionID,
+        completed_at: new Date().toISOString()
+      });
+      console.log(`[M-Pesa] B2C completed: $${tx.amount} → KES sent to user ${tx.user_id}`);
+    } else {
+      // Payout failed — refund balance
+      const currentBalance = await getUserBalance(tx.user_id);
+      const restoredBalance = parseFloat((currentBalance + tx.amount).toFixed(2));
+      await updateBalance(tx.user_id, restoredBalance);
+
+      await updateTransaction(tx.id, {
+        status: 'failed',
+        completed_at: new Date().toISOString()
+      });
+      console.log(`[M-Pesa] B2C failed: ${result.error}. Refunded $${tx.amount} to user ${tx.user_id}`);
+    }
+
+    res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+  } catch (err) {
+    console.error('[M-Pesa] B2C result callback error:', err);
+    res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+  }
+});
+
+// ─────────────────────────────────────────────────
+// POST /api/finances/mpesa/b2c/timeout — B2C timeout callback
+// ─────────────────────────────────────────────────
+router.post('/mpesa/b2c/timeout', async (req, res) => {
+  console.log('[M-Pesa] B2C Timeout callback:', JSON.stringify(req.body));
+  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
 });
 
 // ─────────────────────────────────────────────────

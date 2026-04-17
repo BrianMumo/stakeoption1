@@ -15,10 +15,17 @@ class MpesaService {
     this.consumerKey = (process.env.MPESA_CONSUMER_KEY || '').trim();
     this.consumerSecret = (process.env.MPESA_CONSUMER_SECRET || '').trim();
     this.shortcode = (process.env.MPESA_SHORTCODE || '174379').trim();
-    this.passkey = (process.env.MPESA_PASSKEY || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919').trim();
-    this.callbackUrl = (process.env.MPESA_CALLBACK_URL || 'https://example.com/api/finances/mpesa/callback').trim();
+    this.passkey = (process.env.MPESA_PASSKEY || '').trim();
+    this.callbackUrl = (process.env.MPESA_CALLBACK_URL || '').trim();
     this.environment = (process.env.MPESA_ENVIRONMENT || 'sandbox').trim();
     
+    // B2C (withdrawal) credentials
+    this.b2cShortcode = (process.env.MPESA_B2C_SHORTCODE || this.shortcode).trim();
+    this.b2cInitiatorName = (process.env.MPESA_B2C_INITIATOR_NAME || '').trim();
+    this.b2cSecurityCredential = (process.env.MPESA_B2C_SECURITY_CREDENTIAL || '').trim();
+    this.b2cResultUrl = (process.env.MPESA_B2C_RESULT_URL || `${this.callbackUrl.replace('/mpesa/callback', '/mpesa/b2c/result')}`).trim();
+    this.b2cTimeoutUrl = (process.env.MPESA_B2C_TIMEOUT_URL || `${this.callbackUrl.replace('/mpesa/callback', '/mpesa/b2c/timeout')}`).trim();
+
     this.baseUrl = this.environment === 'production'
       ? 'https://api.safaricom.co.ke'
       : 'https://sandbox.safaricom.co.ke';
@@ -36,8 +43,10 @@ class MpesaService {
     console.log(`[M-Pesa] Environment: ${this.environment}`);
     console.log(`[M-Pesa] Base URL: ${this.baseUrl}`);
     console.log(`[M-Pesa] Shortcode: ${this.shortcode}`);
+    console.log(`[M-Pesa] B2C Shortcode: ${this.b2cShortcode}`);
+    console.log(`[M-Pesa] B2C Initiator: ${this.b2cInitiatorName}`);
+    console.log(`[M-Pesa] B2C Configured: ${this.isB2CConfigured()}`);
     console.log(`[M-Pesa] Callback: ${this.callbackUrl}`);
-    console.log(`[M-Pesa] Configured: ${this.isConfigured()}`);
 
     // Test connectivity on startup
     if (this.isConfigured()) {
@@ -176,6 +185,89 @@ class MpesaService {
   }
 
   /**
+   * Initiate B2C payout (send money to customer's phone)
+   * @param {string} phone - Customer phone number
+   * @param {number} amount - Amount in KES
+   * @param {string} remarks - Transaction remarks
+   * @returns {Promise<object>} B2C result
+   */
+  async b2cPayout(phone, amount, remarks = 'Withdrawal') {
+    const token = await this.getAccessToken();
+    const formattedPhone = this.formatPhone(phone);
+
+    const payload = {
+      InitiatorName: this.b2cInitiatorName,
+      SecurityCredential: this.b2cSecurityCredential,
+      CommandID: 'BusinessPayment',
+      Amount: Math.floor(amount),
+      PartyA: this.b2cShortcode,
+      PartyB: formattedPhone,
+      Remarks: remarks,
+      QueueTimeOutURL: this.b2cTimeoutUrl,
+      ResultURL: this.b2cResultUrl,
+      Occasion: remarks
+    };
+
+    console.log(`[M-Pesa] B2C Payout: KES ${Math.floor(amount)} to ${formattedPhone}`);
+
+    try {
+      const response = await this.http.post('/mpesa/b2c/v3/paymentrequest', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('[M-Pesa] B2C response:', JSON.stringify(response.data));
+      return response.data;
+    } catch (err) {
+      const msg = err.response ? JSON.stringify(err.response.data) : err.message;
+      console.error('[M-Pesa] B2C error:', msg);
+      throw new Error(`M-Pesa B2C payout failed: ${msg}`);
+    }
+  }
+
+  /**
+   * Parse B2C callback result
+   */
+  parseB2CResult(body) {
+    try {
+      const result = body.Result;
+      if (!result) return { success: false, error: 'Invalid B2C callback format' };
+
+      const resultCode = result.ResultCode;
+      const resultDesc = result.ResultDesc;
+      const conversationID = result.ConversationID;
+      const transactionID = result.TransactionID;
+
+      if (resultCode !== 0) {
+        return {
+          success: false,
+          error: resultDesc,
+          conversationID,
+          transactionID,
+          resultCode
+        };
+      }
+
+      // Extract result parameters
+      const params = {};
+      const items = result.ResultParameters?.ResultParameter || [];
+      for (const item of items) {
+        params[item.Key] = item.Value;
+      }
+
+      return {
+        success: true,
+        conversationID,
+        transactionID,
+        amount: params.TransactionAmount,
+        mpesaReceiptNumber: params.TransactionReceipt,
+        receiverPhone: params.ReceiverPartyPublicName,
+        completedTime: params.TransactionCompletedDateTime
+      };
+    } catch (e) {
+      return { success: false, error: 'B2C callback parse error: ' + e.message };
+    }
+  }
+
+  /**
    * Parse STK Push callback data
    */
   parseStkCallback(body) {
@@ -253,6 +345,13 @@ class MpesaService {
    */
   isConfigured() {
     return !!(this.consumerKey && this.consumerSecret && this.consumerKey !== '');
+  }
+
+  /**
+   * Check if B2C (withdrawal) is properly configured
+   */
+  isB2CConfigured() {
+    return !!(this.b2cInitiatorName && this.b2cSecurityCredential && this.b2cShortcode);
   }
 }
 
