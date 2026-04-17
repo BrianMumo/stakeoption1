@@ -74,16 +74,21 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
         },
         rightPriceScale: {
           borderColor: 'rgba(255, 255, 255, 0.08)',
-          scaleMargins: { top: 0.1, bottom: 0.1 },
+          scaleMargins: { top: 0.15, bottom: 0.15 },
+          autoScale: true,
         },
         timeScale: {
           borderColor: 'rgba(255, 255, 255, 0.08)',
           timeVisible: true,
           secondsVisible: true,
-          rightOffset: 15,
+          rightOffset: 5,
+          lockVisibleTimeRangeOnResize: true,
+          fixLeftEdge: false,
+          fixRightEdge: true,
+          minBarSpacing: 3,
         },
-        handleScroll: { mouseWheel: true, pressedMouseMove: true },
-        handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+        handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+        handleScale: { axisPressedMouseMove: false, mouseWheel: false, pinch: false },
       });
 
       if (cancelled) { chart.remove(); return; }
@@ -112,6 +117,9 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
       chartRef.current = chart;
       seriesRef.current = series;
       setChartReady(true);
+
+      // Auto-scroll to keep latest data always visible (ExpertOption-style)
+      chart.timeScale().scrollToRealTime();
 
       // Handle resize
       resizeObserver = new ResizeObserver((entries) => {
@@ -361,6 +369,8 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
         const lastPoint = cleaned[cleaned.length - 1];
         seriesRef.current.update(lastPoint);
       }
+      // Always keep chart scrolled to real-time (ExpertOption-style containment)
+      chartRef.current.timeScale().scrollToRealTime();
     } catch (e) {
       // On any error, try full reset
       try {
