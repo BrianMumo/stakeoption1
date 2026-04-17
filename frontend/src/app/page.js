@@ -57,53 +57,47 @@ export default function LandingPage() {
       {/* ========== NAVBAR ========== */}
       <nav className={styles.navbar}>
         <div className={styles.navLeft}>
-          <button className={styles.hamburger} aria-label="Menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
+          <Link href="/" className={styles.navLogo}>
+            <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+              <defs>
+                <linearGradient id="navLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#38bdf8"/>
+                  <stop offset="100%" stopColor="#818cf8"/>
+                </linearGradient>
+              </defs>
+              <path d="M16 2L28 8v8c0 7.732-5.373 14.953-12 16C9.373 30.953 4 23.732 4 16V8l12-6z" fill="url(#navLogoGrad)" opacity="0.9"/>
+              <path d="M11 16l3 3 7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-          </button>
-          <span className={styles.chatLink}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            Online chat
-          </span>
+            <span className={styles.navBrand}>StakeOption</span>
+          </Link>
         </div>
 
-        <Link href="/" className={styles.navLogo}>
-          <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
-            <defs>
-              <linearGradient id="navLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#38bdf8"/>
-                <stop offset="100%" stopColor="#818cf8"/>
-              </linearGradient>
-            </defs>
-            <path d="M16 2L28 8v8c0 7.732-5.373 14.953-12 16C9.373 30.953 4 23.732 4 16V8l12-6z" fill="url(#navLogoGrad)" opacity="0.9"/>
-            <path d="M11 16l3 3 7-7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span className={styles.navBrand}>StakeOption</span>
-        </Link>
+        <div className={styles.navCenter}>
+          <a href="#features" className={styles.navLink}>Features</a>
+          <a href="#how-it-works" className={styles.navLink}>How it Works</a>
+          <a href="#reviews" className={styles.navLink}>Reviews</a>
+        </div>
 
-        {isLoggedIn ? (
-          <Link href="/trade" className={styles.navCta}>
-            Trade Now
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </Link>
-        ) : (
-          <div className={styles.navAuthButtons}>
-            <Link href="/login" className={styles.navLoginBtn}>Sign in</Link>
-            <Link href="/register" className={styles.navRegisterBtn}>
-              Get Started
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <div className={styles.navRight}>
+          {isLoggedIn ? (
+            <Link href="/trade" className={styles.navCta}>
+              Trade Now
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="9 18 15 12 9 6"/>
               </svg>
             </Link>
-          </div>
-        )}
+          ) : (
+            <div className={styles.navAuthButtons}>
+              <Link href="/login" className={styles.navLoginBtn}>Sign in</Link>
+              <Link href="/register" className={styles.navRegisterBtn}>
+                Get Started
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </Link>
+            </div>
+          )}
+        </div>
       </nav>
 
       {/* ========== HERO SECTION ========== */}
@@ -260,7 +254,7 @@ export default function LandingPage() {
       </div>
 
       {/* ========== WHY STAKEOPTION ========== */}
-      <section className={styles.section}>
+      <section id="features" className={styles.section}>
         <span className={styles.sectionTag}>Why StakeOption</span>
         <h2 className={styles.sectionTitle}>Built for Modern Traders</h2>
         <p className={styles.sectionSubtitle}>
@@ -365,7 +359,7 @@ export default function LandingPage() {
       </section>
 
       {/* ========== HOW IT WORKS ========== */}
-      <section className={styles.section}>
+      <section id="how-it-works" className={styles.section}>
         <span className={styles.sectionTag}>Get Started</span>
         <h2 className={styles.sectionTitle}>How It Works</h2>
         <p className={styles.sectionSubtitle}>
@@ -415,7 +409,7 @@ export default function LandingPage() {
       </section>
 
       {/* ========== TESTIMONIALS ========== */}
-      <section className={styles.testimonialsSection}>
+      <section id="reviews" className={styles.testimonialsSection}>
         <div style={{textAlign: 'center', marginBottom: '56px'}}>
           <span className={styles.sectionTag}>Reviews</span>
           <h2 className={styles.sectionTitle}>What Traders Say</h2>

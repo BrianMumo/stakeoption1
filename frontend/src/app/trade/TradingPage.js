@@ -12,7 +12,7 @@ import ChartToolbar from '@/components/ChartToolbar/ChartToolbar';
 import TradingPanel from '@/components/TradingPanel/TradingPanel';
 import AutoTrader from '@/components/AutoTrader/AutoTrader';
 import AssetSelector from '@/components/AssetSelector/AssetSelector';
-import RightSidebar from '@/components/RightSidebar/RightSidebar';
+
 import TradeHistory from '@/components/TradeHistory/TradeHistory';
 import TradeResultPopup from '@/components/TradeResultPopup/TradeResultPopup';
 import FinancesOverlay from '@/components/Finances/FinancesOverlay';
@@ -66,7 +66,7 @@ export default function TradingPage() {
         allPrices={allPrices}
       />
 
-      <RightSidebar />
+
 
       {/* Main content: full-width chart area + bottom trading bar */}
       <main className={styles.main}>

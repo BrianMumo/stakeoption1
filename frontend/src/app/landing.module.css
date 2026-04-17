@@ -73,36 +73,6 @@
   gap: 20px;
 }
 
-.hamburger {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
-  color: #64748b;
-  transition: all 0.25s;
-}
-
-.hamburger:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #e2e8f0;
-}
-
-.chatLink {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #64748b;
-  cursor: pointer;
-  transition: color 0.25s;
-}
-
-.chatLink:hover {
-  color: #94a3b8;
-}
-
 .navLogo {
   display: flex;
   align-items: center;
@@ -118,6 +88,34 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   letter-spacing: -0.5px;
+}
+
+.navCenter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navLink {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #94a3b8;
+  text-decoration: none;
+  transition: all 0.25s;
+  position: relative;
+}
+
+.navLink:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .navAuthButtons {
@@ -186,9 +184,12 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  min-height: 100vh;
-  padding: 120px 80px 80px;
+  justify-content: center;
+  gap: 48px;
+  min-height: 92vh;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 100px 48px 60px;
   overflow: hidden;
   z-index: 1;
 }
