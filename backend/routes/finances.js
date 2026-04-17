@@ -110,8 +110,8 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('[Finances] Deposit error:', err);
-    res.status(500).json({ error: 'Deposit failed. Please try again.' });
+    console.error('[Finances] Deposit error:', err.message || err);
+    res.status(500).json({ error: err.message || 'Deposit failed. Please try again.' });
   }
 });
 
