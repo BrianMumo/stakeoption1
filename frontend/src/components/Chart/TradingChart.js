@@ -54,8 +54,8 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
           fontFamily: 'Inter, sans-serif',
         },
         grid: {
-          vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
-          horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
+          vertLines: { color: 'transparent' },
+          horzLines: { color: 'transparent' },
         },
         crosshair: {
           mode: 0,
