@@ -63,12 +63,12 @@ export default function FinancesOverlay({ isOpen, onClose }) {
     const usdAmt = parseFloat(amount);
     if (!usdAmt || usdAmt < 1) return setError('Minimum deposit is $1');
     
-    // Convert USD to KES for M-Pesa
     const kesAmount = Math.ceil(usdAmt * KES_PER_USD);
 
     setLoading(true);
     try {
-      const result = await initiateDeposit(phone.trim(), kesAmount);
+      // Send USD amount — backend converts to KES for M-Pesa
+      const result = await initiateDeposit(phone.trim(), usdAmt);
 
       if (result.simulated) {
         // Simulation mode — instant success

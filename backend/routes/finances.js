@@ -20,25 +20,30 @@ const {
 const router = express.Router();
 
 // ─────────────────────────────────────────────────
-// POST /api/finances/deposit — Initiate M-Pesa deposit
+// POST /api/finances/deposit — Initiate M-Pesa deposit (amount in USD)
 // ─────────────────────────────────────────────────
+const KES_PER_USD = 129.24;
+
 router.post('/deposit', authMiddleware, async (req, res) => {
   try {
     const { phone, amount } = req.body;
     const userId = req.user.id;
 
-    // Validation
+    // Validation — amount is in USD
     if (!phone || !amount) {
       return res.status(400).json({ error: 'Phone number and amount are required.' });
     }
 
-    const depositAmount = parseFloat(amount);
-    if (isNaN(depositAmount) || depositAmount < 10) {
-      return res.status(400).json({ error: 'Minimum deposit is KES 10.' });
+    const usdAmount = parseFloat(amount);
+    if (isNaN(usdAmount) || usdAmount < 1) {
+      return res.status(400).json({ error: 'Minimum deposit is $1.' });
     }
-    if (depositAmount > 150000) {
-      return res.status(400).json({ error: 'Maximum deposit is KES 150,000.' });
+    if (usdAmount > 10000) {
+      return res.status(400).json({ error: 'Maximum deposit is $10,000.' });
     }
+
+    // Convert USD to KES for M-Pesa
+    const kesAmount = Math.ceil(usdAmount * KES_PER_USD);
 
     // Validate phone format (Kenyan number)
     const cleanPhone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
@@ -46,11 +51,11 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Invalid phone number. Use format: 07XXXXXXXX or 254XXXXXXXXX' });
     }
 
-    // Create pending transaction
+    // Create pending transaction — amount stored in USD
     const tx = await createTransaction({
       user_id: userId,
       type: 'deposit',
-      amount: depositAmount,
+      amount: usdAmount,
       phone: mpesa.formatPhone(cleanPhone),
       method: 'mpesa',
       reference: `DEP_${Date.now()}_${userId.slice(0, 8)}`
@@ -59,7 +64,7 @@ router.post('/deposit', authMiddleware, async (req, res) => {
     // Initiate M-Pesa STK Push or simulate
     let result;
     if (mpesa.isConfigured()) {
-      result = await mpesa.stkPush(cleanPhone, depositAmount, tx.reference);
+      result = await mpesa.stkPush(cleanPhone, kesAmount, tx.reference);
       
       if (result.ResponseCode === '0') {
         // STK Push sent successfully — update tx with checkout ID
@@ -69,7 +74,7 @@ router.post('/deposit', authMiddleware, async (req, res) => {
         
         return res.json({
           success: true,
-          message: 'M-Pesa payment prompt sent to your phone. Enter your PIN to complete.',
+          message: 'M-Pesa payment prompt sent to your phone.\nEnter your PIN to complete.',
           transactionId: tx.id,
           checkoutRequestID: result.CheckoutRequestID
         });
@@ -81,11 +86,10 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       }
     } else {
       // Simulation mode — auto-complete deposit
-      result = await mpesa.simulateDeposit(cleanPhone, depositAmount, tx.reference);
+      result = await mpesa.simulateDeposit(cleanPhone, kesAmount, tx.reference);
       
-      // Credit the user's balance immediately
+      // Credit the user's balance immediately (amount is already USD)
       const currentBalance = await getUserBalance(userId);
-      const usdAmount = parseFloat((depositAmount / 130).toFixed(2)); // KES to USD conversion
       const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
       await updateBalance(userId, newBalance);
 
@@ -98,7 +102,7 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       return res.json({
         success: true,
         simulated: true,
-        message: `Deposit of KES ${depositAmount.toLocaleString()} successful! ($${usdAmount.toFixed(2)} added to your balance)`,
+        message: `Deposit of $${usdAmount.toFixed(2)} (KES ${kesAmount.toLocaleString()}) successful!`,
         transactionId: tx.id,
         receipt: result.mpesaReceiptNumber,
         balance: newBalance,
@@ -131,10 +135,9 @@ router.post('/mpesa/callback', async (req, res) => {
     }
 
     if (result.success) {
-      // Credit the user's balance
+      // Credit the user's balance — tx.amount is already in USD
       const currentBalance = await getUserBalance(tx.user_id);
-      const usdAmount = parseFloat((result.amount / 130).toFixed(2));
-      const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
+      const newBalance = parseFloat((currentBalance + tx.amount).toFixed(2));
       await updateBalance(tx.user_id, newBalance);
 
       await updateTransaction(tx.id, {
@@ -143,7 +146,7 @@ router.post('/mpesa/callback', async (req, res) => {
         completed_at: new Date().toISOString()
       });
 
-      console.log(`[M-Pesa] Deposit completed: KES ${result.amount} → $${usdAmount} for user ${tx.user_id}`);
+      console.log(`[M-Pesa] Deposit completed: $${tx.amount} for user ${tx.user_id}`);
     } else {
       await updateTransaction(tx.id, {
         status: 'failed',
@@ -278,10 +281,9 @@ router.get('/transaction/:id', authMiddleware, async (req, res) => {
 
         // ResultCode 0 = success (payment completed)
         if (queryResult.ResultCode === '0' || queryResult.ResultCode === 0) {
-          // Credit the user's balance
+          // Credit the user's balance — tx.amount is already in USD
           const currentBalance = await getUserBalance(tx.user_id);
-          const usdAmount = parseFloat((tx.amount / 130).toFixed(2));
-          const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
+          const newBalance = parseFloat((currentBalance + tx.amount).toFixed(2));
           await updateBalance(tx.user_id, newBalance);
 
           tx = await updateTransaction(tx.id || tx._id, {
@@ -290,7 +292,7 @@ router.get('/transaction/:id', authMiddleware, async (req, res) => {
             completed_at: new Date().toISOString()
           });
 
-          console.log(`[M-Pesa] STK Query confirmed payment: KES ${tx.amount} → $${usdAmount} for user ${tx.user_id}`);
+          console.log(`[M-Pesa] STK Query confirmed payment: $${tx.amount} for user ${tx.user_id}`);
         } 
         // ResultCode 1032 = cancelled by user
         else if (queryResult.ResultCode === '1032' || queryResult.ResultCode === 1032) {
