@@ -100,7 +100,7 @@ export default function TradingPanel({ currentAsset, currentPrice, onTradeResult
                 id="trade-amount-input"
               />
             </span>
-            <span className={styles.amountLabel}>investment</span>
+            <span className={styles.amountLabel}>stake</span>
           </div>
           <button className={styles.amountBtn} onClick={() => handleAmountChange(1)} id="amount-increase">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
