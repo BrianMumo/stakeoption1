@@ -56,8 +56,8 @@ export default function TradingPage() {
 
   const handleLogout = useCallback(() => {
     logout();
-    router.push('/');
-  }, [logout, router]);
+    window.location.href = '/login';
+  }, [logout]);
 
   const closeOverlay = useCallback(() => {
     setOverlayPanel(null);
