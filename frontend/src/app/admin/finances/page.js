@@ -19,6 +19,9 @@ export default function AdminFinancesPage() {
   const [withdrawResult, setWithdrawResult] = useState(null);
   const [withdrawError, setWithdrawError] = useState('');
 
+  const [balanceSource, setBalanceSource] = useState(null);
+  const [balanceUpdatedAt, setBalanceUpdatedAt] = useState(null);
+
   useEffect(() => {
     loadAll();
   }, []);
@@ -31,6 +34,8 @@ export default function AdminFinancesPage() {
         fetchTransactions('limit=20'),
       ]);
       setBalance(balData?.balance || balData);
+      setBalanceSource(balData?.source || null);
+      setBalanceUpdatedAt(balData?.updatedAt || null);
       setAnalytics(anaData);
       setTransactions(txData.transactions || []);
     } catch (err) {
@@ -44,8 +49,22 @@ export default function AdminFinancesPage() {
   async function refreshBalance() {
     setBalanceLoading(true);
     try {
-      const data = await fetchMpesaBalance();
+      // Pass refresh=true to trigger a fresh Daraja Account Balance query
+      const data = await fetchMpesaBalance(true);
       setBalance(data?.balance || data);
+      setBalanceSource(data?.source || null);
+      setBalanceUpdatedAt(data?.updatedAt || null);
+      // If it was queried but no callback yet, poll again in 5 seconds
+      if (data?.queryStatus === 'queried' && data?.source !== 'mpesa_callback') {
+        setTimeout(async () => {
+          try {
+            const updated = await fetchMpesaBalance();
+            setBalance(updated?.balance || updated);
+            setBalanceSource(updated?.source || null);
+            setBalanceUpdatedAt(updated?.updatedAt || null);
+          } catch (_) {}
+        }, 5000);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -130,6 +149,10 @@ export default function AdminFinancesPage() {
                     <span style={{ color: '#fbbf24' }}>KES {balance.uncleared.toLocaleString()}</span>
                   </div>
                 )}
+                <div style={{ fontSize: 10, color: '#4a4a6a', marginTop: 4 }}>
+                  Source: {balanceSource === 'mpesa_callback' ? '🟢 M-Pesa Live' : balanceSource === 'database' ? '🔵 DB Estimate' : '⏳ Waiting for M-Pesa...'}
+                  {balanceUpdatedAt && ` · ${new Date(balanceUpdatedAt).toLocaleTimeString()}`}
+                </div>
               </div>
             </>
           ) : (

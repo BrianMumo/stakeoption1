@@ -106,45 +106,89 @@ router.get('/transactions', async (req, res) => {
 // M-PESA ADMIN ENDPOINTS
 // ══════════════════════════════════════════
 
-// GET /api/admin/mpesa/balance — Calculate paybill balance from transactions
+// GET /api/admin/mpesa/balance — Get paybill balance + trigger refresh
 router.get('/mpesa/balance', async (req, res) => {
   try {
-    // Calculate balance from our own transaction records
-    // This is the most reliable method — the Safaricom Account Balance API
-    // is callback-based and doesn't return balance directly
+    const mpesa = require('../services/mpesa');
+
+    // Check if M-Pesa is fully configured
+    if (!mpesa.isConfigured() || !mpesa.isB2CConfigured()) {
+      // Fallback: calculate from DB transactions
+      const allTx = await getAllTransactions({ limit: 10000 });
+      const completedDeposits = allTx.filter(t => t.type === 'deposit' && t.status === 'completed');
+      const completedWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'completed');
+      const totalDeposited = completedDeposits.reduce((s, t) => s + (t.amount || 0), 0);
+      const totalWithdrawn = completedWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
+      const KES_PER_USD = 129.24;
+      return res.json({
+        success: true,
+        source: 'database',
+        balance: {
+          utility: Math.max(0, Math.round((totalDeposited - totalWithdrawn) * KES_PER_USD)),
+          working: Math.max(0, Math.round((totalDeposited - totalWithdrawn) * KES_PER_USD)),
+          uncleared: 0,
+          currency: 'KES',
+        }
+      });
+    }
+
+    // Get last known balance from Safaricom callback
+    const lastKnown = mpesa.getLastKnownBalance();
+
+    // Trigger a fresh balance query (async — result comes via callback)
+    const triggerRefresh = req.query.refresh === 'true';
+    let queryStatus = null;
+    if (triggerRefresh || lastKnown.stale) {
+      try {
+        const queryResult = await mpesa.accountBalance();
+        queryStatus = 'queried';
+        console.log('[Admin] Balance query sent — waiting for callback');
+      } catch (err) {
+        queryStatus = 'query_failed: ' + err.message;
+      }
+    }
+
+    // Return the last known balance (from previous callback)
+    if (lastKnown.balance) {
+      return res.json({
+        success: true,
+        source: 'mpesa_callback',
+        balance: lastKnown.balance,
+        updatedAt: lastKnown.updatedAt,
+        stale: lastKnown.stale,
+        queryStatus,
+      });
+    }
+
+    // No cached balance yet — trigger query and tell admin to wait
+    if (!queryStatus) {
+      try {
+        await mpesa.accountBalance();
+        queryStatus = 'queried';
+      } catch (err) {
+        queryStatus = 'query_failed: ' + err.message;
+      }
+    }
+
+    // Fallback to DB calculation while waiting for first callback
     const allTx = await getAllTransactions({ limit: 10000 });
-    
     const completedDeposits = allTx.filter(t => t.type === 'deposit' && t.status === 'completed');
     const completedWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'completed');
-    const pendingWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'pending');
-
     const totalDeposited = completedDeposits.reduce((s, t) => s + (t.amount || 0), 0);
     const totalWithdrawn = completedWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
-    const pendingAmount = pendingWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
-
-    // Paybill float = what came in minus what went out
-    const availableBalance = totalDeposited - totalWithdrawn;
+    const KES_PER_USD = 129.24;
 
     res.json({
       success: true,
+      source: 'database_pending_callback',
       balance: {
-        utility: Math.max(0, Math.round(availableBalance * 129.24)), // Convert USD to KES
-        working: Math.max(0, Math.round((availableBalance - pendingAmount) * 129.24)),
-        uncleared: Math.round(pendingAmount * 129.24),
+        utility: Math.max(0, Math.round((totalDeposited - totalWithdrawn) * KES_PER_USD)),
+        working: Math.max(0, Math.round((totalDeposited - totalWithdrawn) * KES_PER_USD)),
+        uncleared: 0,
         currency: 'KES',
-        usd: {
-          total: availableBalance,
-          available: availableBalance - pendingAmount,
-          pending: pendingAmount,
-        }
       },
-      breakdown: {
-        totalDeposited,
-        totalWithdrawn,
-        pendingWithdrawals: pendingAmount,
-        depositCount: completedDeposits.length,
-        withdrawalCount: completedWithdrawals.length,
-      }
+      queryStatus,
+      message: 'Balance query sent to Safaricom. Click Refresh in a few seconds for live balance.',
     });
   } catch (err) {
     console.error('Admin M-Pesa balance error:', err);

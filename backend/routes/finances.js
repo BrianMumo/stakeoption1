@@ -361,6 +361,32 @@ router.post('/mpesa/b2c/timeout', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────
+// Account Balance callbacks (async result from Safaricom)
+// ─────────────────────────────────────────────────
+
+// POST /api/finances/mpesa/balance/result — Receives actual balance from Safaricom
+router.post('/mpesa/balance/result', async (req, res) => {
+  try {
+    console.log('[M-Pesa] Balance Result callback received:', JSON.stringify(req.body));
+    const result = mpesa.parseBalanceResult(req.body);
+    if (result.success) {
+      console.log(`[M-Pesa] ✅ Balance stored — Utility: KES ${result.balance.utility}, Working: KES ${result.balance.working}`);
+    } else {
+      console.error('[M-Pesa] Balance result error:', result.error);
+    }
+  } catch (err) {
+    console.error('[M-Pesa] Balance result callback error:', err);
+  }
+  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+});
+
+// POST /api/finances/mpesa/balance/timeout — Balance query timeout
+router.post('/mpesa/balance/timeout', async (req, res) => {
+  console.log('[M-Pesa] Balance Timeout callback:', JSON.stringify(req.body));
+  res.json({ ResultCode: 0, ResultDesc: 'Accepted' });
+});
+
+// ─────────────────────────────────────────────────
 // GET /api/finances/transactions — Transaction history
 // ─────────────────────────────────────────────────
 router.get('/transactions', authMiddleware, async (req, res) => {

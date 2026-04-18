@@ -26,12 +26,20 @@ class MpesaService {
     this.b2cResultUrl = (process.env.MPESA_B2C_RESULT_URL || `${this.callbackUrl.replace('/mpesa/callback', '/mpesa/b2c/result')}`).trim();
     this.b2cTimeoutUrl = (process.env.MPESA_B2C_TIMEOUT_URL || `${this.callbackUrl.replace('/mpesa/callback', '/mpesa/b2c/timeout')}`).trim();
 
+    // Account Balance callback URLs
+    this.balanceResultUrl = (process.env.MPESA_BALANCE_RESULT_URL || `${this.callbackUrl.replace('/mpesa/callback', '/mpesa/balance/result')}`).trim();
+    this.balanceTimeoutUrl = (process.env.MPESA_BALANCE_TIMEOUT_URL || `${this.callbackUrl.replace('/mpesa/callback', '/mpesa/balance/timeout')}`).trim();
+
     this.baseUrl = this.environment === 'production'
       ? 'https://api.safaricom.co.ke'
       : 'https://sandbox.safaricom.co.ke';
     
     this.accessToken = null;
     this.tokenExpiry = 0;
+
+    // Store last known balance from callback
+    this.lastKnownBalance = null;
+    this.lastBalanceUpdate = null;
 
     // Create axios instance with defaults
     this.http = axios.create({
@@ -346,7 +354,7 @@ class MpesaService {
 
   /**
    * Query M-Pesa Account Balance
-   * Uses the Account Balance API to fetch current paybill float
+   * Sends async request — result arrives at balanceResultUrl callback
    */
   async accountBalance() {
     const token = await this.getAccessToken();
@@ -358,17 +366,18 @@ class MpesaService {
       PartyA: this.shortcode,
       IdentifierType: '4', // Shortcode
       Remarks: 'Admin balance query',
-      QueueTimeOutURL: this.b2cTimeoutUrl,
-      ResultURL: this.b2cResultUrl,
+      QueueTimeOutURL: this.balanceTimeoutUrl,
+      ResultURL: this.balanceResultUrl,
     };
 
     console.log(`[M-Pesa] Account Balance query for shortcode: ${this.shortcode}`);
+    console.log(`[M-Pesa] Balance ResultURL: ${this.balanceResultUrl}`);
 
     try {
       const response = await this.http.post('/mpesa/accountbalance/v1/query', payload, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      console.log('[M-Pesa] Balance response:', JSON.stringify(response.data));
+      console.log('[M-Pesa] Balance request accepted:', JSON.stringify(response.data));
       return response.data;
     } catch (err) {
       const msg = err.response ? JSON.stringify(err.response.data) : err.message;
@@ -378,18 +387,92 @@ class MpesaService {
   }
 
   /**
-   * Simulate account balance for demo/sandbox mode
+   * Parse Account Balance callback result from Safaricom
+   * The callback sends balance as a string like:
+   *   "Working Account|KES|15000.00|15000.00|0.00|0.00
+   *    Utility Account|KES|25000.00|25000.00|0.00|0.00"
    */
-  simulateBalance() {
-    return {
-      success: true,
-      simulated: true,
-      balance: {
-        utility: Math.round(Math.random() * 50000 + 10000),
-        working: Math.round(Math.random() * 30000 + 5000),
-        uncleared: 0,
-        currency: 'KES'
+  parseBalanceResult(body) {
+    try {
+      const result = body.Result;
+      if (!result) return { success: false, error: 'Invalid balance callback format' };
+
+      if (result.ResultCode !== 0) {
+        return {
+          success: false,
+          error: result.ResultDesc,
+          resultCode: result.ResultCode
+        };
       }
+
+      // Extract result parameters
+      const params = {};
+      const items = result.ResultParameters?.ResultParameter || [];
+      for (const item of items) {
+        params[item.Key] = item.Value;
+      }
+
+      // Parse AccountBalance string
+      // Format: "Working Account|KES|amount|available|uncleared|reserved\nUtility Account|KES|..."
+      const balanceStr = params.AccountBalance || params.BOBBalanceAmount || '';
+      const accounts = {};
+
+      if (balanceStr) {
+        const lines = balanceStr.split('&');
+        for (const line of lines) {
+          const parts = line.split('|');
+          if (parts.length >= 3) {
+            const accountName = parts[0].trim().toLowerCase();
+            const currency = parts[1].trim();
+            const balance = parseFloat(parts[2]) || 0;
+            const available = parseFloat(parts[3]) || balance;
+            const uncleared = parseFloat(parts[4]) || 0;
+
+            if (accountName.includes('utility')) {
+              accounts.utility = { currency, balance, available, uncleared };
+            } else if (accountName.includes('working')) {
+              accounts.working = { currency, balance, available, uncleared };
+            }
+          }
+        }
+      }
+
+      const balanceData = {
+        utility: accounts.utility?.balance || 0,
+        working: accounts.working?.balance || 0,
+        uncleared: (accounts.utility?.uncleared || 0) + (accounts.working?.uncleared || 0),
+        currency: accounts.utility?.currency || accounts.working?.currency || 'KES',
+        raw: balanceStr,
+        timestamp: new Date().toISOString(),
+      };
+
+      // Store as last known balance
+      this.lastKnownBalance = balanceData;
+      this.lastBalanceUpdate = new Date();
+
+      console.log(`[M-Pesa] ✅ Balance updated — Utility: KES ${balanceData.utility}, Working: KES ${balanceData.working}`);
+
+      return {
+        success: true,
+        balance: balanceData,
+        conversationID: result.ConversationID,
+        transactionID: result.TransactionID,
+      };
+    } catch (e) {
+      return { success: false, error: 'Balance callback parse error: ' + e.message };
+    }
+  }
+
+  /**
+   * Get the last known balance (from most recent callback)
+   */
+  getLastKnownBalance() {
+    return {
+      balance: this.lastKnownBalance,
+      updatedAt: this.lastBalanceUpdate?.toISOString() || null,
+      stale: this.lastBalanceUpdate
+        ? (Date.now() - this.lastBalanceUpdate.getTime()) > 5 * 60 * 1000 // stale after 5 min
+        : true,
     };
   }
 

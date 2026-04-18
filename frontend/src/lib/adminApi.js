@@ -68,7 +68,7 @@ export const fetchTrades = (params = '') => adminFetch(`/api/admin/trades${param
 export const fetchTransactions = (params = '') => adminFetch(`/api/admin/transactions${params ? '?' + params : ''}`);
 
 // M-Pesa Admin
-export const fetchMpesaBalance = () => adminFetch('/api/admin/mpesa/balance');
+export const fetchMpesaBalance = (refresh = false) => adminFetch(`/api/admin/mpesa/balance${refresh ? '?refresh=true' : ''}`);
 export const adminMpesaWithdraw = (phone, amount) => adminFetch('/api/admin/mpesa/withdraw', {
   method: 'POST',
   body: JSON.stringify({ phone, amount }),
