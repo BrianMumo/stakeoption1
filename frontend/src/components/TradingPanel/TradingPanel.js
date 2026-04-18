@@ -7,7 +7,7 @@ import { useTrade } from '@/hooks/useTrade';
 import styles from './TradingPanel.module.css';
 
 export default function TradingPanel({ currentAsset, currentPrice, onTradeResult }) {
-  const { user } = useAuth();
+  const { user, activeBalance } = useAuth();
   const { executeTrade, placing, error, clearError, lastResult } = useTrade();
   const [amount, setAmount] = useState(DEFAULT_AMOUNT);
   const [expiry, setExpiry] = useState(DEFAULT_EXPIRY);
@@ -27,7 +27,7 @@ export default function TradingPanel({ currentAsset, currentPrice, onTradeResult
     setAmount((prev) => {
       const next = prev + delta;
       if (next < 1) return 1;
-      if (user && next > user.balance) return user.balance;
+      if (next > activeBalance) return Math.floor(activeBalance);
       return next;
     });
   };

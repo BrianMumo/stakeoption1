@@ -153,7 +153,7 @@ export default function Header({ currentAsset, currentPrice, priceDirection, onO
               </svg>
             </button>
             <div className={styles.userMenu}>
-              <button className={styles.avatarBtn} title={user.username} onClick={logout}>
+              <button className={styles.avatarBtn} title={user.username}>
                 <div className={styles.avatarImg}>
                   <span className={styles.avatarText}>{user.username?.charAt(0).toUpperCase()}</span>
                 </div>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { DEFAULT_ASSET } from '@/lib/constants';
 import { usePriceStream } from '@/hooks/usePriceStream';
 import { useTrade } from '@/hooks/useTrade';
@@ -32,7 +31,6 @@ export default function TradingPage() {
   const [overlayPanel, setOverlayPanel] = useState(null); // 'profile' | 'education' | 'help' | 'settings'
 
   const { user, logout, accountType, resetDemoBalance } = useAuth();
-  const router = useRouter();
 
   const { currentPrice, priceChange, priceDirection, history, allPrices } = usePriceStream(currentAsset);
   const { activeTrades } = useTrade();

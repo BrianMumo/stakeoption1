@@ -14,7 +14,7 @@ function AuthGate({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
-      router.replace('/register');
+      router.replace('/login');
     } else {
       setChecking(false);
     }
