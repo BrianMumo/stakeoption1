@@ -13,6 +13,20 @@
 
 const { createTrade, closeTrade, getUserBalance, updateBalance, updateDemoBalance, getActiveTrades, getUserRaw } = require('../config/db');
 
+// ── Per-Asset Payout Rates (must match frontend constants) ──
+const ASSET_PAYOUTS = {
+  'Volatility 10 Index':       0.95,
+  'Volatility 25 Index':       0.93,
+  'Volatility 50 Index':       0.90,
+  'Volatility 75 Index':       0.88,
+  'Volatility 100 Index':      0.85,
+  'Volatility 10 (1s) Index':  0.94,
+  'Volatility 25 (1s) Index':  0.92,
+  'Volatility 50 (1s) Index':  0.89,
+  'Volatility 75 (1s) Index':  0.87,
+  'Volatility 100 (1s) Index': 0.84,
+};
+
 // ── House Edge Configuration ──
 // These control the platform's profitability on real trades
 // and the demo experience for user acquisition
@@ -66,13 +80,16 @@ class TradeEngine {
       await updateDemoBalance(userId, newBalance);
     }
 
+    // Look up the correct payout for this asset
+    const payoutPercent = ASSET_PAYOUTS[asset] || 0.90;
+
     const trade = await createTrade({
       user_id: userId,
       asset,
       direction,
       amount,
       strike_price: currentPrice,
-      payout_percent: 0.95,
+      payout_percent: payoutPercent,
       expiry_duration,
       account_type
     });

@@ -490,7 +490,8 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
     const elapsed = totalDuration - remaining;
     const progress = Math.min(1, elapsed / totalDuration);
     const isBuy = trade.direction === 'buy';
-    const payout = trade.amount * (trade.payout || 95) / 100;
+    const payoutPct = trade.payout_percent || 0.90;
+    const payout = trade.amount * payoutPct;
     
     // Current P&L
     let pnl = 0;
@@ -561,7 +562,8 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
           const zoneColor = isBuy
             ? 'rgba(0, 200, 83, 0.06)'
             : 'rgba(255, 82, 82, 0.06)';
-          const payout = trade.amount * (trade.payout || 95) / 100;
+          const payoutPct = trade.payout_percent || 0.90;
+          const payout = trade.amount * payoutPct;
 
           return (
             <div key={trade.id}>
