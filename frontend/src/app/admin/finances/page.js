@@ -114,19 +114,26 @@ export default function AdminFinancesPage() {
           ) : balance ? (
             <>
               <div style={{ fontSize: 32, fontWeight: 800, color: '#22c55e', letterSpacing: -1 }}>
-                KES {(balance.utility || balance.working || 0).toLocaleString()}
+                KES {(balance.utility || 0).toLocaleString()}
               </div>
-              <div style={{ fontSize: 13, color: '#6b6b8a', marginTop: 6 }}>
-                ≈ ${Math.round((balance.utility || balance.working || 0) / KES_PER_USD).toLocaleString()} USD
+              <div style={{ fontSize: 14, color: '#8a8aa0', marginTop: 6, fontWeight: 600 }}>
+                ≈ ${balance.usd?.total?.toFixed(2) || Math.round((balance.utility || 0) / KES_PER_USD).toLocaleString()} USD
               </div>
-              {balance.working > 0 && (
-                <div style={{ fontSize: 12, color: '#4a4a6a', marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
-                  Working: KES {balance.working.toLocaleString()} · Uncleared: KES {(balance.uncleared || 0).toLocaleString()}
+              <div style={{ fontSize: 12, color: '#4a4a6a', marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Available</span>
+                  <span style={{ color: '#22c55e' }}>KES {(balance.working || 0).toLocaleString()}</span>
                 </div>
-              )}
+                {balance.uncleared > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Pending</span>
+                    <span style={{ color: '#fbbf24' }}>KES {balance.uncleared.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
-            <div style={{ fontSize: 14, color: '#6b6b8a' }}>Unable to fetch balance</div>
+            <div style={{ fontSize: 14, color: '#6b6b8a' }}>No transaction data</div>
           )}
         </div>
 

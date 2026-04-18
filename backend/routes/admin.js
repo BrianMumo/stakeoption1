@@ -106,25 +106,53 @@ router.get('/transactions', async (req, res) => {
 // M-PESA ADMIN ENDPOINTS
 // ══════════════════════════════════════════
 
-// GET /api/admin/mpesa/balance — Query paybill balance
+// GET /api/admin/mpesa/balance — Calculate paybill balance from transactions
 router.get('/mpesa/balance', async (req, res) => {
   try {
-    const mpesa = require('../services/mpesa');
+    // Calculate balance from our own transaction records
+    // This is the most reliable method — the Safaricom Account Balance API
+    // is callback-based and doesn't return balance directly
+    const allTx = await getAllTransactions({ limit: 10000 });
     
-    if (!mpesa.isConfigured() || !mpesa.isB2CConfigured()) {
-      // Return simulated balance for sandbox/dev
-      const simulated = mpesa.simulateBalance();
-      return res.json(simulated);
-    }
+    const completedDeposits = allTx.filter(t => t.type === 'deposit' && t.status === 'completed');
+    const completedWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'completed');
+    const pendingWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'pending');
 
-    const result = await mpesa.accountBalance();
-    res.json({ success: true, result });
+    const totalDeposited = completedDeposits.reduce((s, t) => s + (t.amount || 0), 0);
+    const totalWithdrawn = completedWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
+    const pendingAmount = pendingWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
+
+    // Paybill float = what came in minus what went out
+    const availableBalance = totalDeposited - totalWithdrawn;
+
+    res.json({
+      success: true,
+      balance: {
+        utility: Math.max(0, Math.round(availableBalance * 129.24)), // Convert USD to KES
+        working: Math.max(0, Math.round((availableBalance - pendingAmount) * 129.24)),
+        uncleared: Math.round(pendingAmount * 129.24),
+        currency: 'KES',
+        usd: {
+          total: availableBalance,
+          available: availableBalance - pendingAmount,
+          pending: pendingAmount,
+        }
+      },
+      breakdown: {
+        totalDeposited,
+        totalWithdrawn,
+        pendingWithdrawals: pendingAmount,
+        depositCount: completedDeposits.length,
+        withdrawalCount: completedWithdrawals.length,
+      }
+    });
   } catch (err) {
     console.error('Admin M-Pesa balance error:', err);
-    // Fallback to simulated balance on error
-    const mpesa = require('../services/mpesa');
-    const simulated = mpesa.simulateBalance();
-    res.json(simulated);
+    res.json({
+      success: false,
+      balance: { utility: 0, working: 0, uncleared: 0, currency: 'KES' },
+      error: err.message,
+    });
   }
 });
 
