@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/Sidebar/Sidebar';
 import Header from '@/components/Header/Header';
 import TradingChart from '@/components/Chart/TradingChart';
-import ChartToolbar from '@/components/ChartToolbar/ChartToolbar';
 import TradingPanel from '@/components/TradingPanel/TradingPanel';
 import AutoTrader from '@/components/AutoTrader/AutoTrader';
 import AssetSelector from '@/components/AssetSelector/AssetSelector';
@@ -109,7 +108,6 @@ export default function TradingPage() {
             activeTrades={activeTrades}
             currentAsset={currentAsset}
           />
-          <ChartToolbar />
         </div>
 
         {/* Bottom Trading Bar */}
