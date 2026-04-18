@@ -49,7 +49,7 @@ export default function AdminLayout({ children }) {
       <aside className="admin-sidebar">
         <div className="admin-sidebar-header">
           <div className="admin-brand">
-            <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+            <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
               <defs>
                 <linearGradient id="aGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#7c3aed" />
@@ -67,16 +67,21 @@ export default function AdminLayout({ children }) {
         </div>
 
         <nav className="admin-nav">
-          {navItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className={`admin-nav-item ${pathname === item.href ? 'active' : ''}`}
-            >
-              <span className="admin-nav-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </a>
-          ))}
+          {navItems.map((item) => {
+            const isActive = item.href === '/admin'
+              ? pathname === '/admin'
+              : pathname.startsWith(item.href);
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                className={`admin-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <span className="admin-nav-icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </a>
+            );
+          })}
         </nav>
 
         <div className="admin-sidebar-footer">
