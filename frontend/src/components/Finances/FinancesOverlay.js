@@ -11,7 +11,7 @@ const POLL_INTERVAL = 3000; // 3 seconds
 const POLL_TIMEOUT = 120000; // 2 minutes max wait
 
 export default function FinancesOverlay({ isOpen, onClose }) {
-  const { user, updateBalance, accountType } = useAuth();
+  const { user, updateRealBalance, accountType } = useAuth();
   const [view, setView] = useState('menu'); // menu | deposit | withdraw | history
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
@@ -53,9 +53,9 @@ export default function FinancesOverlay({ isOpen, onClose }) {
   const refreshBalance = useCallback(async () => {
     try {
       const data = await getBalance();
-      updateBalance(data.balance);
+      updateRealBalance(data.balance);
     } catch (e) {}
-  }, [updateBalance]);
+  }, [updateRealBalance]);
 
   const handleDeposit = async () => {
     setError('');
@@ -80,7 +80,7 @@ export default function FinancesOverlay({ isOpen, onClose }) {
           receipt: result.receipt,
           balance: result.balance
         });
-        if (result.balance !== undefined) updateBalance(result.balance);
+        if (result.balance !== undefined) updateRealBalance(result.balance);
       } else {
         // Real M-Pesa — STK Push sent, wait for user to enter PIN
         setPending({
@@ -122,7 +122,7 @@ export default function FinancesOverlay({ isOpen, onClose }) {
             receipt: tx.mpesa_receipt || tx.reference,
             balance: balData.balance
           });
-          updateBalance(balData.balance);
+          updateRealBalance(balData.balance);
         } else if (tx.status === 'failed') {
           clearInterval(pollRef.current);
           pollRef.current = null;
@@ -163,7 +163,7 @@ export default function FinancesOverlay({ isOpen, onClose }) {
       });
 
       if (result.balance !== undefined) {
-        updateBalance(result.balance);
+        updateRealBalance(result.balance);
       } else {
         await refreshBalance();
       }

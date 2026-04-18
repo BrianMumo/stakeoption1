@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
     ? (user?.balance ?? 0)
     : (user?.demo_balance ?? 0);
 
-  // Update the correct balance field
+  // Update the correct balance field (based on active account)
   const updateBalance = useCallback((newBalance) => {
     setUser((prev) => {
       if (!prev) return prev;
@@ -75,6 +75,14 @@ export function AuthProvider({ children }) {
       } else {
         return { ...prev, demo_balance: newBalance };
       }
+    });
+  }, []);
+
+  // Always update REAL balance (for deposits/withdrawals — never touches demo)
+  const updateRealBalance = useCallback((newBalance) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      return { ...prev, balance: newBalance };
     });
   }, []);
 
@@ -108,6 +116,7 @@ export function AuthProvider({ children }) {
       setAccountType,
       activeBalance,
       updateBalance,
+      updateRealBalance,
       resetDemoBalance
     }}>
       {children}
