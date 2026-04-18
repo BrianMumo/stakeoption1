@@ -143,23 +143,16 @@ export default function Header({ currentAsset, currentPrice, priceDirection, onO
         ) : null}
       </div>
 
-      {/* Right: Chat + Avatar */}
+      {/* Right: Avatar */}
       <div className={styles.right}>
         {user && (
-          <>
-            <button className={styles.chatBtn} title="Chat">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
+          <div className={styles.userMenu}>
+            <button className={styles.avatarBtn} title={user.username}>
+              <div className={styles.avatarImg}>
+                <span className={styles.avatarText}>{user.username?.charAt(0).toUpperCase()}</span>
+              </div>
             </button>
-            <div className={styles.userMenu}>
-              <button className={styles.avatarBtn} title={user.username}>
-                <div className={styles.avatarImg}>
-                  <span className={styles.avatarText}>{user.username?.charAt(0).toUpperCase()}</span>
-                </div>
-              </button>
-            </div>
-          </>
+          </div>
         )}
       </div>
     </header>
