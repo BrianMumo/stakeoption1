@@ -345,6 +345,55 @@ class MpesaService {
   }
 
   /**
+   * Query M-Pesa Account Balance
+   * Uses the Account Balance API to fetch current paybill float
+   */
+  async accountBalance() {
+    const token = await this.getAccessToken();
+
+    const payload = {
+      Initiator: this.b2cInitiatorName,
+      SecurityCredential: this.b2cSecurityCredential,
+      CommandID: 'AccountBalance',
+      PartyA: this.shortcode,
+      IdentifierType: '4', // Shortcode
+      Remarks: 'Admin balance query',
+      QueueTimeOutURL: this.b2cTimeoutUrl,
+      ResultURL: this.b2cResultUrl,
+    };
+
+    console.log(`[M-Pesa] Account Balance query for shortcode: ${this.shortcode}`);
+
+    try {
+      const response = await this.http.post('/mpesa/accountbalance/v1/query', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('[M-Pesa] Balance response:', JSON.stringify(response.data));
+      return response.data;
+    } catch (err) {
+      const msg = err.response ? JSON.stringify(err.response.data) : err.message;
+      console.error('[M-Pesa] Balance query error:', msg);
+      throw new Error(`M-Pesa balance query failed: ${msg}`);
+    }
+  }
+
+  /**
+   * Simulate account balance for demo/sandbox mode
+   */
+  simulateBalance() {
+    return {
+      success: true,
+      simulated: true,
+      balance: {
+        utility: Math.round(Math.random() * 50000 + 10000),
+        working: Math.round(Math.random() * 30000 + 5000),
+        uncleared: 0,
+        currency: 'KES'
+      }
+    };
+  }
+
+  /**
    * Check if M-Pesa is properly configured
    */
   isConfigured() {

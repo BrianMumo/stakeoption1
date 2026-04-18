@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchUsers, updateUserAdmin, deleteUserAdmin } from '@/lib/adminApi';
+import { fetchUsers, updateUserAdmin, deleteUserAdmin, adjustUserBalance } from '@/lib/adminApi';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -10,6 +10,9 @@ export default function AdminUsersPage() {
   const [editUser, setEditUser] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [adjustAmount, setAdjustAmount] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustMsg, setAdjustMsg] = useState('');
 
   useEffect(() => {
     loadUsers();
@@ -200,6 +203,38 @@ export default function AdminUsersPage() {
               <div style={{ fontSize: 11, color: '#6b6b8a', marginTop: 6 }}>
                 When enabled, trade outcomes are adjusted so this user wins approximately this percentage of their trades. The close price is nudged naturally — it looks realistic on the chart.
               </div>
+            </div>
+
+            {/* Quick Balance Adjustment */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 14, marginTop: 4 }}>
+              <label className="admin-form-label">💰 Quick Balance Adjustment</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, marginBottom: 8 }}>
+                <input className="admin-form-input" type="number" placeholder="Amount ($)" value={adjustAmount} onChange={(e) => setAdjustAmount(e.target.value)} />
+                <input className="admin-form-input" type="text" placeholder="Reason (optional)" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} />
+              </div>
+              <div className="admin-btn-group">
+                <button className="admin-btn admin-btn-sm" style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e', flex: 1 }} onClick={async () => {
+                  if (!adjustAmount) return;
+                  try {
+                    const res = await adjustUserBalance(editUser.id, adjustAmount, 'credit', adjustReason);
+                    setAdjustMsg(`✅ ${res.message}`);
+                    setEditForm(f => ({ ...f, balance: res.adjustment.new }));
+                    setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, balance: res.adjustment.new } : u));
+                    setAdjustAmount(''); setAdjustReason('');
+                  } catch (e) { setAdjustMsg(`❌ ${e.message}`); }
+                }}>+ Credit</button>
+                <button className="admin-btn admin-btn-sm" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', flex: 1 }} onClick={async () => {
+                  if (!adjustAmount) return;
+                  try {
+                    const res = await adjustUserBalance(editUser.id, adjustAmount, 'debit', adjustReason);
+                    setAdjustMsg(`✅ ${res.message}`);
+                    setEditForm(f => ({ ...f, balance: res.adjustment.new }));
+                    setUsers(prev => prev.map(u => u.id === editUser.id ? { ...u, balance: res.adjustment.new } : u));
+                    setAdjustAmount(''); setAdjustReason('');
+                  } catch (e) { setAdjustMsg(`❌ ${e.message}`); }
+                }}>- Debit</button>
+              </div>
+              {adjustMsg && <div style={{ fontSize: 11, marginTop: 6, color: adjustMsg.startsWith('✅') ? '#22c55e' : '#ef4444' }}>{adjustMsg}</div>}
             </div>
 
             <div className="admin-modal-actions">

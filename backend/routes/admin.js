@@ -102,4 +102,175 @@ router.get('/transactions', async (req, res) => {
   }
 });
 
+// ══════════════════════════════════════════
+// M-PESA ADMIN ENDPOINTS
+// ══════════════════════════════════════════
+
+// GET /api/admin/mpesa/balance — Query paybill balance
+router.get('/mpesa/balance', async (req, res) => {
+  try {
+    const mpesa = require('../services/mpesa');
+    
+    if (!mpesa.isConfigured() || !mpesa.isB2CConfigured()) {
+      // Return simulated balance for sandbox/dev
+      const simulated = mpesa.simulateBalance();
+      return res.json(simulated);
+    }
+
+    const result = await mpesa.accountBalance();
+    res.json({ success: true, result });
+  } catch (err) {
+    console.error('Admin M-Pesa balance error:', err);
+    // Fallback to simulated balance on error
+    const mpesa = require('../services/mpesa');
+    const simulated = mpesa.simulateBalance();
+    res.json(simulated);
+  }
+});
+
+// POST /api/admin/mpesa/withdraw — Admin withdraws from paybill to personal M-Pesa
+router.post('/mpesa/withdraw', async (req, res) => {
+  try {
+    const { phone, amount } = req.body;
+    if (!phone || !amount || amount < 10) {
+      return res.status(400).json({ error: 'Phone and amount (min KES 10) required.' });
+    }
+
+    const mpesa = require('../services/mpesa');
+
+    if (!mpesa.isConfigured() || !mpesa.isB2CConfigured()) {
+      // Simulate withdrawal in sandbox mode
+      const simResult = await mpesa.simulateWithdrawal(phone, amount, 'AdminWithdrawal');
+      return res.json({
+        success: true,
+        simulated: true,
+        message: `Simulated admin withdrawal of KES ${amount} to ${phone}`,
+        receipt: simResult.mpesaReceiptNumber,
+      });
+    }
+
+    const result = await mpesa.b2cPayout(phone, amount, `Admin Withdrawal`);
+    res.json({
+      success: true,
+      message: `Withdrawal of KES ${amount} initiated to ${phone}`,
+      result,
+    });
+  } catch (err) {
+    console.error('Admin M-Pesa withdraw error:', err);
+    res.status(500).json({ error: err.message || 'Withdrawal failed.' });
+  }
+});
+
+// ══════════════════════════════════════════
+// USER BALANCE ADJUSTMENT
+// ══════════════════════════════════════════
+
+// PUT /api/admin/users/:id/adjust-balance — Credit/debit user balance
+router.put('/users/:id/adjust-balance', async (req, res) => {
+  try {
+    const { amount, type, reason } = req.body; // type: 'credit' | 'debit', amount in USD
+    const adjustAmount = parseFloat(amount);
+    if (!adjustAmount || adjustAmount <= 0) {
+      return res.status(400).json({ error: 'Valid positive amount required.' });
+    }
+    if (!['credit', 'debit'].includes(type)) {
+      return res.status(400).json({ error: 'Type must be credit or debit.' });
+    }
+
+    const user = await getUserById(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    const currentBalance = user.balance || 0;
+    let newBalance;
+    if (type === 'credit') {
+      newBalance = currentBalance + adjustAmount;
+    } else {
+      newBalance = Math.max(0, currentBalance - adjustAmount);
+    }
+
+    const updated = await updateUser(req.params.id, { balance: newBalance });
+    console.log(`[Admin] Balance ${type}: ${user.username} $${currentBalance} → $${newBalance} (${reason || 'No reason'})`);
+
+    res.json({
+      user: updated,
+      adjustment: {
+        type,
+        amount: adjustAmount,
+        previous: currentBalance,
+        new: newBalance,
+        reason: reason || '',
+      },
+      message: `${type === 'credit' ? 'Credited' : 'Debited'} $${adjustAmount.toFixed(2)} ${type === 'credit' ? 'to' : 'from'} ${user.username}`,
+    });
+  } catch (err) {
+    console.error('Admin balance adjust error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ══════════════════════════════════════════
+// ANALYTICS
+// ══════════════════════════════════════════
+
+// GET /api/admin/analytics — Revenue analytics
+router.get('/analytics', async (req, res) => {
+  try {
+    const stats = await getStats();
+    const transactions = await getAllTransactions({ limit: 500 });
+
+    // Calculate revenue breakdown
+    const deposits = transactions.filter(t => t.type === 'deposit' && t.status === 'completed');
+    const withdrawals = transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed');
+
+    const totalDeposited = deposits.reduce((s, t) => s + (t.amount || 0), 0);
+    const totalWithdrawn = withdrawals.reduce((s, t) => s + (t.amount || 0), 0);
+    const netRevenue = totalDeposited - totalWithdrawn;
+
+    // Platform profit from trades (house edge) 
+    const wonTrades = stats?.wonTrades || 0;
+    const lostTrades = stats?.lostTrades || 0;
+    const totalVolume = stats?.totalVolume || 0;
+
+    // Daily breakdown (last 7 days)
+    const now = new Date();
+    const dailyStats = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      const dayDeposits = deposits.filter(t => t.created_at?.startsWith(dateStr));
+      const dayWithdrawals = withdrawals.filter(t => t.created_at?.startsWith(dateStr));
+
+      dailyStats.push({
+        date: dateStr,
+        deposits: dayDeposits.reduce((s, t) => s + (t.amount || 0), 0),
+        withdrawals: dayWithdrawals.reduce((s, t) => s + (t.amount || 0), 0),
+        count: dayDeposits.length + dayWithdrawals.length,
+      });
+    }
+
+    res.json({
+      revenue: {
+        totalDeposited,
+        totalWithdrawn,
+        netRevenue,
+        depositCount: deposits.length,
+        withdrawalCount: withdrawals.length,
+      },
+      trades: {
+        total: (wonTrades + lostTrades),
+        won: wonTrades,
+        lost: lostTrades,
+        volume: totalVolume,
+        winRate: stats?.winRate || 0,
+      },
+      dailyStats,
+    });
+  } catch (err) {
+    console.error('Admin analytics error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

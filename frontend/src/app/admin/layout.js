@@ -41,6 +41,7 @@ export default function AdminLayout({ children }) {
     { href: '/admin/users', label: 'Users', icon: '👥' },
     { href: '/admin/trades', label: 'Trades', icon: '📈' },
     { href: '/admin/transactions', label: 'Transactions', icon: '💳' },
+    { href: '/admin/finances', label: 'Finances', icon: '💰' },
   ];
 
   return (

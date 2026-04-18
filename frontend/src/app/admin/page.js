@@ -1,26 +1,32 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { fetchDashboard, fetchTrades, fetchUsers } from '@/lib/adminApi';
+import { fetchDashboard, fetchTrades, fetchUsers, fetchMpesaBalance, fetchAnalytics } from '@/lib/adminApi';
+
+const KES_PER_USD = 129.24;
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [recentTrades, setRecentTrades] = useState([]);
   const [recentUsers, setRecentUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [mpesaBalance, setMpesaBalance] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000); // refresh every 15s
+    const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
   }, []);
 
   async function loadData() {
     try {
-      const [dashData, tradeData, userData] = await Promise.all([
+      const [dashData, tradeData, userData, balData, anaData] = await Promise.all([
         fetchDashboard(),
         fetchTrades('limit=8'),
         fetchUsers(),
+        fetchMpesaBalance().catch(() => null),
+        fetchAnalytics().catch(() => null),
       ]);
       setStats(dashData.stats);
       setRecentTrades(tradeData.trades?.slice(0, 8) || []);
@@ -30,6 +36,8 @@ export default function AdminDashboard() {
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
           .slice(0, 5)
       );
+      if (balData) setMpesaBalance(balData.balance || balData);
+      if (anaData) setAnalytics(anaData);
     } catch (err) {
       console.error('Dashboard load error:', err);
     } finally {
@@ -45,11 +53,55 @@ export default function AdminDashboard() {
     );
   }
 
+  const revenue = analytics?.revenue || {};
+
   return (
     <div>
       <div className="admin-page-header">
         <h1 className="admin-page-title">Dashboard</h1>
         <p className="admin-page-subtitle">Platform overview and real-time statistics</p>
+      </div>
+
+      {/* M-Pesa + Revenue Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
+        {/* M-Pesa Balance */}
+        <div className="admin-stat-card" style={{ padding: 20, background: 'linear-gradient(135deg, rgba(34,197,94,0.08), rgba(34,197,94,0.02))' }}>
+          <div className="admin-stat-label">💰 Paybill Balance</div>
+          {mpesaBalance ? (
+            <>
+              <div className="admin-stat-value admin-stat-positive" style={{ fontSize: 24 }}>
+                KES {(mpesaBalance.utility || mpesaBalance.working || 0).toLocaleString()}
+              </div>
+              <div className="admin-stat-sub">
+                ≈ ${Math.round((mpesaBalance.utility || mpesaBalance.working || 0) / KES_PER_USD).toLocaleString()} USD
+              </div>
+            </>
+          ) : (
+            <div className="admin-stat-value" style={{ fontSize: 16, color: '#6b6b8a' }}>Not connected</div>
+          )}
+        </div>
+
+        {/* Net Revenue */}
+        <div className="admin-stat-card" style={{ padding: 20 }}>
+          <div className="admin-stat-label">📊 Net Revenue</div>
+          <div className={`admin-stat-value ${revenue.netRevenue >= 0 ? 'admin-stat-positive' : 'admin-stat-negative'}`} style={{ fontSize: 24 }}>
+            ${(revenue.netRevenue || 0).toFixed(2)}
+          </div>
+          <div className="admin-stat-sub">
+            +${(revenue.totalDeposited || 0).toFixed(0)} deposited / -${(revenue.totalWithdrawn || 0).toFixed(0)} withdrawn
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="admin-stat-card" style={{ padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10 }}>
+          <div className="admin-stat-label">⚡ Quick Actions</div>
+          <a href="/admin/finances" className="admin-btn admin-btn-primary" style={{ textAlign: 'center', fontSize: 13, padding: '10px 0', textDecoration: 'none' }}>
+            💸 Manage Finances
+          </a>
+          <a href="/admin/users" className="admin-btn admin-btn-sm" style={{ textAlign: 'center', fontSize: 12, padding: '8px 0', textDecoration: 'none', background: 'rgba(255,255,255,0.06)', color: '#8a8aa0' }}>
+            👥 Manage Users
+          </a>
+        </div>
       </div>
 
       {/* Stats Grid */}
