@@ -9,7 +9,10 @@ import styles from './TradingPanel.module.css';
 export default function TradingPanel({ currentAsset, currentPrice, onTradeResult }) {
   const { user, activeBalance } = useAuth();
   const { executeTrade, placing, error, clearError, lastResult } = useTrade();
-  const [amount, setAmount] = useState(DEFAULT_AMOUNT);
+  const [amount, setAmount] = useState(String(DEFAULT_AMOUNT));
+
+  // Parse amount as number for trade execution
+  const amountNum = parseFloat(amount) || 0;
   const [expiry, setExpiry] = useState(DEFAULT_EXPIRY);
   const [expiryIndex, setExpiryIndex] = useState(EXPIRY_OPTIONS.findIndex(o => o.value === DEFAULT_EXPIRY));
 
@@ -24,12 +27,11 @@ export default function TradingPanel({ currentAsset, currentPrice, onTradeResult
   }, [lastResult, onTradeResult]);
 
   const handleAmountChange = (delta) => {
-    setAmount((prev) => {
-      const next = prev + delta;
-      if (next < 1) return 1;
-      if (next > activeBalance) return Math.floor(activeBalance);
-      return next;
-    });
+    const current = amountNum || 1;
+    let next = current + delta;
+    if (next < 1) next = 1;
+    if (next > activeBalance) next = Math.floor(activeBalance);
+    setAmount(String(next));
   };
 
   // Expiry arrow navigation — left/right arrows like ExpertOption
@@ -48,10 +50,12 @@ export default function TradingPanel({ currentAsset, currentPrice, onTradeResult
       window.location.href = '/login';
       return;
     }
+    const tradeAmt = parseFloat(amount) || 0;
+    if (tradeAmt < 1) return;
     await executeTrade({
       asset: currentAsset,
       direction,
-      amount,
+      amount: tradeAmt,
       expiry_duration: expiry,
     });
   }, [executeTrade, currentAsset, amount, expiry, user]);
@@ -91,9 +95,10 @@ export default function TradingPanel({ currentAsset, currentPrice, onTradeResult
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value);
-                  if (!isNaN(val) && val >= 1) setAmount(val);
+                onChange={(e) => setAmount(e.target.value)}
+                onBlur={() => {
+                  const val = parseFloat(amount);
+                  if (isNaN(val) || val < 1) setAmount('1');
                 }}
                 className={styles.amountInput}
                 min="1"
