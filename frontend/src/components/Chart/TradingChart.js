@@ -324,14 +324,14 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
   }, [activeTrades, history]);
 
   // Track whether initial data has been loaded
-  const initialFitDoneRef = useRef(false);
+  const lastSetCountRef = useRef(0);
   const prevAssetRef = useRef(null);
 
   // Reset chart data when asset changes
   useEffect(() => {
     if (currentAsset && currentAsset !== prevAssetRef.current) {
       prevAssetRef.current = currentAsset;
-      initialFitDoneRef.current = false;
+      lastSetCountRef.current = 0;
       // Clear existing series data to prevent mixing old/new asset data
       if (seriesRef.current) {
         try { seriesRef.current.setData([]); } catch (e) {}
@@ -360,16 +360,20 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
     if (cleaned.length === 0) return;
 
     try {
-      if (!initialFitDoneRef.current) {
-        // First load: set all data — do NOT use fitContent as it overrides
-        // rightOffset and minBarSpacing, compressing data unnaturally.
-        // Just set data and scroll to real-time position.
+      // If we haven't loaded data yet, OR if history jumped significantly
+      // (e.g., full 300-point history arrived after a few streaming points),
+      // do a full setData to load all historical data
+      const needsFullLoad = lastSetCountRef.current === 0 ||
+        (cleaned.length > lastSetCountRef.current + 50);
+
+      if (needsFullLoad) {
         seriesRef.current.setData(cleaned);
-        initialFitDoneRef.current = true;
+        lastSetCountRef.current = cleaned.length;
       } else {
         // Streaming: update with latest point only
         const lastPoint = cleaned[cleaned.length - 1];
         seriesRef.current.update(lastPoint);
+        lastSetCountRef.current = cleaned.length;
       }
       // Always keep chart scrolled to real-time (ExpertOption-style containment)
       chartRef.current.timeScale().scrollToRealTime();
@@ -377,6 +381,7 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
       // On any error, try full reset
       try {
         seriesRef.current.setData(cleaned);
+        lastSetCountRef.current = cleaned.length;
         chartRef.current.timeScale().scrollToRealTime();
       } catch (_) {}
     }
