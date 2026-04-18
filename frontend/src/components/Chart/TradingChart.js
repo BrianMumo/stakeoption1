@@ -74,7 +74,7 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
         },
         rightPriceScale: {
           borderColor: 'rgba(255, 255, 255, 0.08)',
-          scaleMargins: { top: 0.22, bottom: 0.15 },
+          scaleMargins: { top: 0.25, bottom: 0.25 },
           autoScale: true,
         },
         timeScale: {
