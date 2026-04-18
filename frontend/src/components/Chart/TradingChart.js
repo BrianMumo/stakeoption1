@@ -54,8 +54,8 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
           fontFamily: 'Inter, sans-serif',
         },
         grid: {
-          vertLines: { color: 'transparent' },
-          horzLines: { color: 'transparent' },
+          vertLines: { color: 'rgba(42, 46, 57, 0.3)' },
+          horzLines: { color: 'rgba(42, 46, 57, 0.15)' },
         },
         crosshair: {
           mode: 0,
@@ -78,14 +78,14 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
           autoScale: true,
         },
         timeScale: {
-          borderColor: 'rgba(255, 255, 255, 0.08)',
+          borderColor: 'rgba(255, 255, 255, 0.06)',
           timeVisible: true,
-          secondsVisible: true,
-          rightOffset: 12,
+          secondsVisible: false,
+          rightOffset: 8,
           lockVisibleTimeRangeOnResize: true,
           fixLeftEdge: false,
           fixRightEdge: false,
-          minBarSpacing: 3,
+          minBarSpacing: 4,
           shiftVisibleRangeOnNewBar: true,
         },
         handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
@@ -96,9 +96,9 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
 
       const series = chart.addAreaSeries({
         lineColor: '#2196F3',
-        topColor: 'rgba(33, 150, 243, 0.28)',
-        bottomColor: 'rgba(33, 150, 243, 0.02)',
-        lineWidth: 2,
+        topColor: 'rgba(33, 150, 243, 0.4)',
+        bottomColor: 'rgba(33, 150, 243, 0.01)',
+        lineWidth: 3,
         lineType: 2,
         crosshairMarkerVisible: true,
         crosshairMarkerRadius: 6,
@@ -550,13 +550,7 @@ export default function TradingChart({ history, currentPrice, priceDirection, ac
         </div>
       )}
 
-      {/* Live price badge with pulsing glow */}
-      {currentPrice && (
-        <div className={`${styles.livePriceBadge} ${priceDirection === 'up' ? styles.priceUp : priceDirection === 'down' ? styles.priceDown : ''}`}>
-          <span className={styles.liveDot} />
-          <span>{currentPrice}</span>
-        </div>
-      )}
+      {/* Price is already displayed on the right Y-axis via lastValueVisible */}
 
       {/* ── START / FINISH Trade Zone Overlays (ExpertOption-style) ── */}
       <div ref={tradeZonesRef} className={styles.tradeZonesContainer}>
