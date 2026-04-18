@@ -38,6 +38,23 @@ export default function FinancesOverlay({ isOpen, onClose }) {
     }
   }, [isOpen, view]);
 
+  // Auto-fill phone from last deposit when entering withdraw view
+  useEffect(() => {
+    if (isOpen && view === 'withdraw' && !phone) {
+      (async () => {
+        try {
+          const data = await getTransactions(50);
+          const completed = (data.transactions || []).find(
+            tx => tx.type === 'deposit' && tx.status === 'completed' && tx.phone
+          );
+          if (completed?.phone) {
+            setPhone(completed.phone);
+          }
+        } catch (e) {}
+      })();
+    }
+  }, [isOpen, view]);
+
   const loadTransactions = async () => {
     setTxLoading(true);
     try {
@@ -423,28 +440,18 @@ export default function FinancesOverlay({ isOpen, onClose }) {
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>M-Pesa</label>
-                {phone ? (
-                  <div className={styles.phoneInput}>
-                    <input
-                      type="tel"
-                      className={styles.phoneFieldFull}
-                      placeholder="0712345678"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      maxLength={13}
-                      id="withdraw-phone"
-                    />
-                  </div>
-                ) : (
-                  <div className={styles.mpesaNotice}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <div>
-                      <p>Make an M-Pesa deposit first to register your number.</p>
-                      <p>Withdrawals will then be sent to that number only.</p>
-                    </div>
-                  </div>
-                )}
+                <label className={styles.formLabel}>M-Pesa Phone Number</label>
+                <div className={styles.phoneInput}>
+                  <input
+                    type="tel"
+                    className={styles.phoneFieldFull}
+                    placeholder="0712345678"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    maxLength={13}
+                    id="withdraw-phone"
+                  />
+                </div>
               </div>
 
               {error && <div className={styles.errorMsg}>{error}</div>}
