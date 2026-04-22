@@ -31,17 +31,17 @@ const ASSET_PAYOUTS = {
 // These control the platform's profitability on real trades
 // and the demo experience for user acquisition
 const HOUSE_EDGE = {
-  // Demo: bias IN user's direction → they win more, build confidence
+  // Demo: bias IN user's direction → they win more, build confidence, convert to real
   demo: {
     biasDirection: 'favor',    // Push price in user's predicted direction
-    biasStrength: 0.06,        // Subtle drift (6% of volatility per tick)
-    applyProbability: 0.60,    // Apply bias on 60% of demo trades
+    biasStrength: 0.08,        // Moderate drift (8% of volatility per tick)
+    applyProbability: 0.65,    // Apply bias on 65% of demo trades → ~60-65% user win rate
   },
-  // Real: bias AGAINST user's direction → house maintains edge
+  // Real: bias AGAINST user's direction → platform profitability
   real: {
     biasDirection: 'against',  // Push price against user's predicted direction
-    biasStrength: 0.07,        // Subtle counter-drift (7% of volatility per tick)
-    applyProbability: 0.55,    // Apply bias on 55% of real trades
+    biasStrength: 0.18,        // Strong counter-drift (18% of volatility per tick)
+    applyProbability: 0.72,    // Apply bias on 72% of real trades → ~60-63% house win rate
   },
 };
 
