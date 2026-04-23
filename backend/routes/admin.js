@@ -1,5 +1,6 @@
 const express = require('express');
 const adminAuth = require('../middleware/adminAuth');
+const { getKesPerUsd } = require('../services/exchangeRate');
 const { getAllUsers, getUserById, getAllTrades, getAllTransactions, getStats, updateUser, deleteUser, getTradeHistory } = require('../config/db');
 
 const router = express.Router();
@@ -119,7 +120,7 @@ router.get('/mpesa/balance', async (req, res) => {
       const completedWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'completed');
       const totalDeposited = completedDeposits.reduce((s, t) => s + (t.amount || 0), 0);
       const totalWithdrawn = completedWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
-      const KES_PER_USD = 129.24;
+      const KES_PER_USD = await getKesPerUsd();
       return res.json({
         success: true,
         source: 'database',
@@ -128,6 +129,7 @@ router.get('/mpesa/balance', async (req, res) => {
           working: Math.max(0, Math.round((totalDeposited - totalWithdrawn) * KES_PER_USD)),
           uncleared: 0,
           currency: 'KES',
+          exchangeRate: KES_PER_USD,
         }
       });
     }
@@ -176,7 +178,7 @@ router.get('/mpesa/balance', async (req, res) => {
     const completedWithdrawals = allTx.filter(t => t.type === 'withdrawal' && t.status === 'completed');
     const totalDeposited = completedDeposits.reduce((s, t) => s + (t.amount || 0), 0);
     const totalWithdrawn = completedWithdrawals.reduce((s, t) => s + (t.amount || 0), 0);
-    const KES_PER_USD = 129.24;
+    const KES_PER_USD = await getKesPerUsd();
 
     res.json({
       success: true,
@@ -186,6 +188,7 @@ router.get('/mpesa/balance', async (req, res) => {
         working: Math.max(0, Math.round((totalDeposited - totalWithdrawn) * KES_PER_USD)),
         uncleared: 0,
         currency: 'KES',
+        exchangeRate: KES_PER_USD,
       },
       queryStatus,
       message: 'Balance query sent to Safaricom. Click Refresh in a few seconds for live balance.',

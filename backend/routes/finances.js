@@ -6,6 +6,7 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const mpesa = require('../services/mpesa');
+const { getKesPerUsd, usdToKes, kesToUsd, getRateInfo } = require('../services/exchangeRate');
 const {
   getUserById,
   getUserBalance,
@@ -43,9 +44,21 @@ router.get('/mpesa/debug', (req, res) => {
 });
 
 // ─────────────────────────────────────────────────
+// GET /api/finances/exchange-rate — Current KES/USD rate
+// ─────────────────────────────────────────────────
+router.get('/exchange-rate', async (req, res) => {
+  try {
+    const rate = await getKesPerUsd();
+    const info = getRateInfo();
+    res.json({ rate, ...info });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch exchange rate.' });
+  }
+});
+
+// ─────────────────────────────────────────────────
 // POST /api/finances/deposit — Initiate M-Pesa deposit (amount in USD)
 // ─────────────────────────────────────────────────
-const KES_PER_USD = 129.24;
 
 router.post('/deposit', authMiddleware, async (req, res) => {
   try {
@@ -65,7 +78,8 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Maximum deposit is $10,000.' });
     }
 
-    // Convert USD to KES for M-Pesa
+    // Convert USD to KES for M-Pesa (live rate)
+    const KES_PER_USD = await getKesPerUsd();
     const kesAmount = Math.ceil(usdAmount * KES_PER_USD);
 
     // Validate phone format (Kenyan number)
@@ -217,6 +231,8 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Insufficient balance.' });
     }
 
+    // Convert USD to KES for M-Pesa (live rate)
+    const KES_PER_USD = await getKesPerUsd();
     const kesAmount = Math.round(withdrawAmount * KES_PER_USD);
 
     // Create transaction
