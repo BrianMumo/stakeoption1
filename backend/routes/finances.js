@@ -7,6 +7,7 @@ const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const mpesa = require('../services/mpesa');
 const { getKesPerUsd, usdToKes, kesToUsd, getRateInfo } = require('../services/exchangeRate');
+const { sendDepositEmail, sendWithdrawalEmail } = require('../services/emailService');
 const {
   getUserById,
   getUserBalance,
@@ -143,6 +144,14 @@ router.post('/deposit', authMiddleware, async (req, res) => {
         balance: newBalance,
         usdAmount
       });
+
+      // Send deposit confirmation email (non-blocking)
+      const user = await getUserById(userId);
+      if (user) {
+        sendDepositEmail(user.email, user.username, {
+          amount: usdAmount, status: 'completed', reference: tx.reference
+        }).catch(() => {});
+      }
     }
   } catch (err) {
     console.error('[Finances] Deposit error:', err.message || err);
@@ -181,6 +190,14 @@ router.post('/mpesa/callback', async (req, res) => {
       });
 
       console.log(`[M-Pesa] Deposit completed: $${tx.amount} for user ${tx.user_id}`);
+
+      // Send deposit email (non-blocking)
+      const user = await getUserById(tx.user_id);
+      if (user) {
+        sendDepositEmail(user.email, user.username, {
+          amount: tx.amount, status: 'completed', reference: result.mpesaReceiptNumber || ''
+        }).catch(() => {});
+      }
     } else {
       await updateTransaction(tx.id, {
         status: 'failed',
@@ -255,11 +272,19 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
         );
 
         if (result.ResponseCode === '0' || result.ResponseCode === 0) {
-          // B2C request accepted — update tx with conversation ID
+          // B2C request accepted
           await updateTransaction(tx.id, {
             status: 'processing',
             reference: result.ConversationID || tx.reference
           });
+
+          // Send withdrawal processing email (non-blocking)
+          const user = await getUserById(userId);
+          if (user) {
+            sendWithdrawalEmail(user.email, user.username, {
+              amount: withdrawAmount, phone: cleanPhone, status: 'pending', reference: tx.reference
+            }).catch(() => {});
+          }
 
           return res.json({
             success: true,
@@ -271,6 +296,15 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
           // B2C rejected — refund balance atomically
           await atomicBalanceUpdate(userId, withdrawAmount, 'real');
           await updateTransaction(tx.id, { status: 'failed' });
+
+          // Send withdrawal failed email (non-blocking)
+          const user = await getUserById(userId);
+          if (user) {
+            sendWithdrawalEmail(user.email, user.username, {
+              amount: withdrawAmount, phone: cleanPhone, status: 'failed', reference: tx.reference
+            }).catch(() => {});
+          }
+
           return res.status(400).json({
             error: result.errorMessage || result.ResponseDescription || 'Withdrawal failed. Your balance has been restored.'
           });
@@ -287,6 +321,15 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
     } else if (mpesa.isConfigured()) {
       // M-Pesa configured but B2C not — mark as processing (admin manual)
       await updateTransaction(tx.id, { status: 'processing' });
+
+      // Send withdrawal processing email (non-blocking)
+      const user = await getUserById(userId);
+      if (user) {
+        sendWithdrawalEmail(user.email, user.username, {
+          amount: withdrawAmount, phone: cleanPhone, status: 'pending', reference: tx.reference
+        }).catch(() => {});
+      }
+
       return res.json({
         success: true,
         message: `Withdrawal of $${withdrawAmount.toFixed(2)} (KES ${kesAmount.toLocaleString()}) is being processed. You will receive the funds within 24 hours.`,
@@ -302,6 +345,14 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
         mpesa_receipt: result.mpesaReceiptNumber,
         completed_at: new Date().toISOString()
       });
+
+      // Send withdrawal completed email (non-blocking)
+      const user = await getUserById(userId);
+      if (user) {
+        sendWithdrawalEmail(user.email, user.username, {
+          amount: withdrawAmount, phone: cleanPhone, status: 'completed', reference: tx.reference
+        }).catch(() => {});
+      }
 
       return res.json({
         success: true,

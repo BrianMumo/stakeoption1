@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { createUser, getUserByEmail } = require('../config/db');
+const { sendWelcomeEmail } = require('../services/emailService');
 require('dotenv').config();
 
 const router = express.Router();
@@ -40,6 +41,9 @@ router.post('/register', async (req, res) => {
         account_type: user.account_type
       }
     });
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(user.email, user.username).catch(() => {});
   } catch (err) {
     if (err.code === 11000) {
       return res.status(409).json({ error: 'Email or username already taken.' });
