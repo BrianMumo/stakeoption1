@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Trade = require('../models/Trade');
 const Transaction = require('../models/Transaction');
+const PriceState = require('../models/PriceState');
 
 // ── Connect to MongoDB ──
 async function connectDB() {
@@ -55,13 +56,26 @@ async function createUser(email, username, password, role = 'user') {
   };
 }
 
-// Seed admin user if none exists
+// Seed admin user if none exists (credentials from env vars)
 async function seedAdmin() {
-  const adminEmail = 'admin@stakeoption.com';
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim();
+  const adminPassword = (process.env.ADMIN_PASSWORD || '').trim();
+  const adminUsername = (process.env.ADMIN_USERNAME || 'Admin').trim();
+
+  if (!adminEmail || !adminPassword) {
+    console.log('[DB] ADMIN_EMAIL / ADMIN_PASSWORD not set — skipping admin seed');
+    return;
+  }
+
+  if (adminPassword.length < 8) {
+    console.warn('[DB] ⚠️  ADMIN_PASSWORD is too short (min 8 chars) — skipping admin seed');
+    return;
+  }
+
   const existing = await User.findOne({ email: adminEmail });
   if (!existing) {
-    await createUser(adminEmail, 'Admin', 'admin1234', 'admin');
-    console.log('[DB] Admin user seeded: admin@stakeoption.com / admin1234');
+    await createUser(adminEmail, adminUsername, adminPassword, 'admin');
+    console.log(`[DB] Admin user seeded: ${adminEmail}`);
   }
 }
 
@@ -89,6 +103,38 @@ async function updateBalance(userId, newBalance) {
 
 async function updateDemoBalance(userId, newBalance) {
   await User.findByIdAndUpdate(userId, { demo_balance: newBalance });
+}
+
+/**
+ * Atomically adjust a user's balance using MongoDB $inc.
+ * Positive delta = credit, negative delta = debit.
+ * For debits, includes a $gte guard so insufficient balance is rejected atomically.
+ * Returns the new balance after the operation.
+ */
+async function atomicBalanceUpdate(userId, delta, accountType = 'demo') {
+  const field = accountType === 'real' ? 'balance' : 'demo_balance';
+  const roundedDelta = parseFloat(delta.toFixed(2));
+  const filter = { _id: userId };
+
+  // For deductions, ensure sufficient balance in the same atomic op
+  if (roundedDelta < 0) {
+    filter[field] = { $gte: Math.abs(roundedDelta) };
+  }
+
+  const result = await User.findOneAndUpdate(
+    filter,
+    { $inc: { [field]: roundedDelta } },
+    { new: true }
+  );
+
+  if (!result) {
+    // Distinguish "user not found" from "insufficient balance"
+    const exists = await User.exists({ _id: userId });
+    if (!exists) throw new Error('User not found');
+    throw new Error('Insufficient balance');
+  }
+
+  return parseFloat(result[field].toFixed(2));
 }
 
 // --- Trade Functions ---
@@ -189,6 +235,22 @@ async function getUserTransactions(userId, limit = 50) {
     .sort({ created_at: -1 })
     .limit(limit);
   return txs.map(t => t.toObject());
+}
+
+// --- Price State Persistence ---
+
+async function savePriceState(state) {
+  await PriceState.findOneAndUpdate(
+    { _id: 'current' },
+    { prices: state.prices, history: state.history, updated_at: new Date() },
+    { upsert: true }
+  );
+}
+
+async function loadPriceState() {
+  const doc = await PriceState.findById('current').lean();
+  if (!doc) return null;
+  return { prices: doc.prices || {}, history: doc.history || {}, updatedAt: doc.updated_at };
 }
 
 // --- Admin Functions ---
@@ -321,6 +383,7 @@ module.exports = {
   getUserRaw,
   updateBalance,
   updateDemoBalance,
+  atomicBalanceUpdate,
   createTrade,
   getActiveTrades,
   getActiveTradesByUser,
@@ -332,6 +395,8 @@ module.exports = {
   getTransactionByReference,
   updateTransaction,
   getUserTransactions,
+  savePriceState,
+  loadPriceState,
   getAllUsers,
   getAllTrades,
   getAllTransactions,

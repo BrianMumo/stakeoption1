@@ -10,6 +10,7 @@ const {
   getUserById,
   getUserBalance,
   updateBalance,
+  atomicBalanceUpdate,
   createTransaction,
   getTransactionById,
   getTransactionByReference,
@@ -110,10 +111,8 @@ router.post('/deposit', authMiddleware, async (req, res) => {
       // Simulation mode — auto-complete deposit
       result = await mpesa.simulateDeposit(cleanPhone, kesAmount, tx.reference);
       
-      // Credit the user's balance immediately (amount is already USD)
-      const currentBalance = await getUserBalance(userId);
-      const newBalance = parseFloat((currentBalance + usdAmount).toFixed(2));
-      await updateBalance(userId, newBalance);
+      // Credit the user's real balance atomically
+      const newBalance = await atomicBalanceUpdate(userId, usdAmount, 'real');
 
       await updateTransaction(tx.id, {
         status: 'completed',
@@ -158,9 +157,8 @@ router.post('/mpesa/callback', async (req, res) => {
 
     if (result.success) {
       // Credit the user's balance — tx.amount is already in USD
-      const currentBalance = await getUserBalance(tx.user_id);
-      const newBalance = parseFloat((currentBalance + tx.amount).toFixed(2));
-      await updateBalance(tx.user_id, newBalance);
+      // Credit the user's real balance atomically
+      await atomicBalanceUpdate(tx.user_id, tx.amount, 'real');
 
       await updateTransaction(tx.id, {
         status: 'completed',
@@ -202,23 +200,22 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Minimum withdrawal is $1.' });
     }
 
-    const balance = await getUserBalance(userId);
-    if (balance === null) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-    if (withdrawAmount > balance) {
-      return res.status(400).json({ error: 'Insufficient balance.' });
-    }
-
     // Validate phone format
     const cleanPhone = phone.replace(/\s+/g, '').replace(/[^0-9+]/g, '');
     if (!/^(\+?254|0)\d{9}$/.test(cleanPhone)) {
       return res.status(400).json({ error: 'Invalid phone number.' });
     }
 
-    // Deduct from balance immediately
-    const newBalance = parseFloat((balance - withdrawAmount).toFixed(2));
-    await updateBalance(userId, newBalance);
+    // Atomically deduct from real balance (checks sufficiency in one op)
+    let newBalance;
+    try {
+      newBalance = await atomicBalanceUpdate(userId, -withdrawAmount, 'real');
+    } catch (err) {
+      if (err.message === 'User not found') {
+        return res.status(404).json({ error: 'User not found.' });
+      }
+      return res.status(400).json({ error: 'Insufficient balance.' });
+    }
 
     const kesAmount = Math.round(withdrawAmount * KES_PER_USD);
 
@@ -255,8 +252,8 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
             balance: newBalance
           });
         } else {
-          // B2C rejected — refund balance
-          await updateBalance(userId, balance);
+          // B2C rejected — refund balance atomically
+          await atomicBalanceUpdate(userId, withdrawAmount, 'real');
           await updateTransaction(tx.id, { status: 'failed' });
           return res.status(400).json({
             error: result.errorMessage || result.ResponseDescription || 'Withdrawal failed. Your balance has been restored.'
@@ -265,7 +262,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       } catch (b2cErr) {
         // B2C error — refund balance
         console.error('[Finances] B2C payout error:', b2cErr.message);
-        await updateBalance(userId, balance);
+        await atomicBalanceUpdate(userId, withdrawAmount, 'real');
         await updateTransaction(tx.id, { status: 'failed' });
         return res.status(500).json({
           error: `Withdrawal failed: ${b2cErr.message}. Your balance has been restored.`
@@ -334,9 +331,7 @@ router.post('/mpesa/b2c/result', async (req, res) => {
       console.log(`[M-Pesa] B2C completed: $${tx.amount} → KES sent to user ${tx.user_id}`);
     } else {
       // Payout failed — refund balance
-      const currentBalance = await getUserBalance(tx.user_id);
-      const restoredBalance = parseFloat((currentBalance + tx.amount).toFixed(2));
-      await updateBalance(tx.user_id, restoredBalance);
+      const restoredBalance = await atomicBalanceUpdate(tx.user_id, tx.amount, 'real');
 
       await updateTransaction(tx.id, {
         status: 'failed',
@@ -420,9 +415,8 @@ router.get('/transaction/:id', authMiddleware, async (req, res) => {
         // ResultCode 0 = success (payment completed)
         if (queryResult.ResultCode === '0' || queryResult.ResultCode === 0) {
           // Credit the user's balance — tx.amount is already in USD
-          const currentBalance = await getUserBalance(tx.user_id);
-          const newBalance = parseFloat((currentBalance + tx.amount).toFixed(2));
-          await updateBalance(tx.user_id, newBalance);
+          // Credit the user's real balance atomically
+          await atomicBalanceUpdate(tx.user_id, tx.amount, 'real');
 
           tx = await updateTransaction(tx.id || tx._id, {
             status: 'completed',

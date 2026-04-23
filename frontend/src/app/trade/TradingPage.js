@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { DEFAULT_ASSET } from '@/lib/constants';
 import { usePriceStream } from '@/hooks/usePriceStream';
 import { useTrade } from '@/hooks/useTrade';
@@ -27,8 +28,9 @@ export default function TradingPage() {
   const [tradeResult, setTradeResult] = useState(null);
   const [tradeMode, setTradeMode] = useState('manual');
   const [autoTraderOpen, setAutoTraderOpen] = useState(false);
-  const [overlayPanel, setOverlayPanel] = useState(null); // 'profile' | 'education' | 'help' | 'settings'
+  const [overlayPanel, setOverlayPanel] = useState(null); // 'education' | 'help' | 'settings'
 
+  const router = useRouter();
   const { user, logout, accountType, resetDemoBalance } = useAuth();
 
   const { currentPrice, priceChange, priceDirection, history, allPrices } = usePriceStream(currentAsset);
@@ -44,12 +46,15 @@ export default function TradingPage() {
     setActiveTab(tab);
     if (tab === 'finances') {
       setFinancesOpen(true);
-    } else if (tab === 'profile' || tab === 'education' || tab === 'help' || tab === 'settings') {
+    } else if (tab === 'profile') {
+      // Navigate to full profile page
+      router.push('/profile');
+    } else if (tab === 'education' || tab === 'help' || tab === 'settings') {
       setOverlayPanel(tab);
     } else {
       setOverlayPanel(null);
     }
-  }, []);
+  }, [router]);
 
   const handleLogout = useCallback(() => {
     logout();

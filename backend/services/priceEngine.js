@@ -27,17 +27,21 @@ const ASSETS = {
 };
 
 class PriceEngine {
-  constructor() {
+  constructor({ loadState, saveState } = {}) {
     this.prices = {};
     this.priceHistory = {};
     this.listeners = [];
     this.intervals = [];
     this.broadcastInterval = null;
+    this.saveInterval = null;
     this.pendingUpdates = {};
     // Active directional biases: { asset: [{ id, direction, strength, expiresAt }] }
     this.biases = {};
+    // Persistence callbacks (injected from server.js to avoid circular deps)
+    this.loadState = loadState || null;
+    this.saveState = saveState || null;
 
-    // Initialize prices and generate history
+    // Initialize with base prices and generated history (may be overwritten by persisted state)
     for (const [asset, config] of Object.entries(ASSETS)) {
       this.prices[asset] = config.basePrice;
       this.priceHistory[asset] = [];
@@ -48,8 +52,32 @@ class PriceEngine {
 
   // ── PUBLIC API ──
 
-  start(broadcastMs = 500) {
+  async start(broadcastMs = 500) {
     console.log(`[PriceEngine] Starting synthetic engine with ${Object.keys(ASSETS).length} indices...`);
+
+    // ── Restore persisted state (overrides generated history) ──
+    if (this.loadState) {
+      try {
+        const state = await this.loadState();
+        if (state && state.prices) {
+          let restored = 0;
+          for (const [asset, config] of Object.entries(ASSETS)) {
+            if (state.prices[asset] !== undefined) {
+              this.prices[asset] = state.prices[asset];
+              restored++;
+            }
+            if (state.history?.[asset]?.length > 0) {
+              this.priceHistory[asset] = state.history[asset];
+            }
+          }
+          if (restored > 0) {
+            console.log(`[PriceEngine] ✅ Restored ${restored} asset prices from database`);
+          }
+        }
+      } catch (err) {
+        console.error('[PriceEngine] Failed to load persisted state:', err.message);
+      }
+    }
 
     // Start standard indices (tick every broadcastMs)
     const standardInterval = setInterval(() => {
@@ -66,6 +94,12 @@ class PriceEngine {
     // Broadcast pending updates to listeners
     this.broadcastInterval = setInterval(() => this._broadcast(), broadcastMs);
 
+    // ── Persist state every 30 seconds ──
+    if (this.saveState) {
+      this.saveInterval = setInterval(() => this._persistState(), 30000);
+      console.log('[PriceEngine] Price state persistence enabled (every 30s)');
+    }
+
     console.log(`[PriceEngine] ✅ Synthetic indices running — 24/7, no market hours`);
     return Promise.resolve();
   }
@@ -79,7 +113,27 @@ class PriceEngine {
       clearInterval(this.broadcastInterval);
       this.broadcastInterval = null;
     }
+    if (this.saveInterval) {
+      clearInterval(this.saveInterval);
+      this.saveInterval = null;
+    }
+    // Final save on shutdown
+    this._persistState();
     console.log('[PriceEngine] Stopped');
+  }
+
+  async _persistState() {
+    if (!this.saveState) return;
+    try {
+      await this.saveState({
+        prices: { ...this.prices },
+        history: Object.fromEntries(
+          Object.entries(this.priceHistory).map(([k, v]) => [k, v.slice(-300)])
+        )
+      });
+    } catch (err) {
+      console.error('[PriceEngine] Failed to persist state:', err.message);
+    }
   }
 
   onPriceUpdate(callback) {

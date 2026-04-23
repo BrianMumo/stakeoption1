@@ -14,7 +14,7 @@
  * regardless of how many users trade in any direction.
  */
 
-const { createTrade, closeTrade, getUserBalance, updateBalance, updateDemoBalance, getActiveTrades, getUserRaw } = require('../config/db');
+const { createTrade, closeTrade, getUserBalance, atomicBalanceUpdate, getActiveTrades, getUserRaw } = require('../config/db');
 
 // ── Per-Asset Payout Rates (must match frontend constants) ──
 const ASSET_PAYOUTS = {
@@ -74,13 +74,6 @@ class TradeEngine {
       throw new Error(`Invalid asset: ${asset}`);
     }
 
-    const balance = await getUserBalance(userId, account_type);
-    if (balance === null) {
-      throw new Error('User not found');
-    }
-    if (balance < amount) {
-      throw new Error('Insufficient balance');
-    }
     if (amount < 1) {
       throw new Error('Minimum trade amount is $1');
     }
@@ -88,12 +81,12 @@ class TradeEngine {
       throw new Error('Direction must be buy or sell');
     }
 
-    // Deduct the trade amount from the correct balance
-    const newBalance = parseFloat((balance - amount).toFixed(2));
-    if (account_type === 'real') {
-      await updateBalance(userId, newBalance);
-    } else {
-      await updateDemoBalance(userId, newBalance);
+    // Atomically deduct balance — checks sufficiency + deducts in one operation
+    let newBalance;
+    try {
+      newBalance = await atomicBalanceUpdate(userId, -amount, account_type);
+    } catch (err) {
+      throw err; // 'Insufficient balance' or 'User not found'
     }
 
     // Look up the correct payout for this asset
@@ -199,16 +192,12 @@ class TradeEngine {
 
     await closeTrade(trade.id, settlementPrice, status, payout);
 
-    // Update the correct balance if won
+    // Atomically credit balance if won
     if (finalWon) {
-      const currentBalance = await getUserBalance(trade.user_id, acctType);
-      if (currentBalance !== null) {
-        const newBal = parseFloat((currentBalance + payout).toFixed(2));
-        if (acctType === 'real') {
-          await updateBalance(trade.user_id, newBal);
-        } else {
-          await updateDemoBalance(trade.user_id, newBal);
-        }
+      try {
+        await atomicBalanceUpdate(trade.user_id, payout, acctType);
+      } catch (err) {
+        console.error(`[TradeEngine] Failed to credit payout for trade ${trade.id}:`, err.message);
       }
     }
 

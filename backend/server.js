@@ -4,7 +4,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
-const { connectDB } = require('./config/db');
+const { connectDB, savePriceState, loadPriceState } = require('./config/db');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const tradeRoutes = require('./routes/trades');
@@ -51,7 +51,10 @@ const io = new Server(server, {
 });
 
 // Initialize engines
-const priceEngine = new PriceEngine();
+const priceEngine = new PriceEngine({
+  loadState: loadPriceState,
+  saveState: savePriceState,
+});
 const tradeEngine = new TradeEngine(priceEngine, io);
 
 // Wire up socket events
